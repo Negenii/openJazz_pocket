@@ -103,6 +103,7 @@ void of_sdl_SetWindowSize(SDL_Window *win, int w, int h) {
 static struct {
 	const SDL_Palette *src, *dst;
 	Uint32 src_ver, dst_ver;
+	int identity;          /* 1 = palettes match, blit verbatim (no map) */
 	Uint8 map[256];
 } g_palmap[OF_PALMAP_SLOTS];
 static int g_palmap_next;
@@ -113,10 +114,11 @@ static Uint8  g_dst_lut[65536];
 static Uint8  g_dst_lut_set[65536 / 8];
 static const SDL_Palette *g_dst_lut_pal; static Uint32 g_dst_lut_ver;
 
-/* A freed palette's address can come back from the next SDL_AllocPalette
- * with the same version, so a cache entry keyed on pointer+version could
- * hit stale. Dropping the whole (8-entry) cache on any free is cheap and
- * leaves no window. */
+/* Flushes the map cache when OpenJazz frees a palette directly. It has no
+ * such call today, and the shim's internal SDL_FreeSurface -> SDL_FreePalette
+ * path is compiled separately and not redirected, so this wrapper is
+ * currently unreachable; the cache's real safety net is the version check in
+ * palette_map(). Kept so a future direct free cannot resurrect a stale entry. */
 void of_sdl_FreePalette(SDL_Palette *palette) {
 	memset(g_palmap, 0, sizeof g_palmap);
 	g_dst_lut_pal = NULL;
@@ -165,18 +167,25 @@ static const Uint8 *palette_map(const SDL_Surface *src, const SDL_Surface *dst) 
 	 * palette reaches the hardware separately at present time. Mapping
 	 * into those all-black tables would collapse the frame to one index. */
 	if (sp->version == 0 || dp->version == 0) return NULL;
+
+	for (int i = 0; i < OF_PALMAP_SLOTS; i++) {
+		if (g_palmap[i].src == sp && g_palmap[i].dst == dp &&
+		    g_palmap[i].src_ver == sp->version && g_palmap[i].dst_ver == dp->version)
+			return g_palmap[i].identity ? NULL : g_palmap[i].map;
+	}
+
 	int n = sp->ncolors < dp->ncolors ? sp->ncolors : dp->ncolors;
 	if (n > 256) n = 256;
-	if (memcmp(sp->colors, dp->colors, (size_t)n * sizeof(SDL_Color)) == 0) return NULL;
-	for (int i = 0; i < OF_PALMAP_SLOTS; i++) {
-		if (g_palmap[i].src == sp && g_palmap[i].dst == dp && g_palmap[i].src_ver == sp->version && g_palmap[i].dst_ver == dp->version)
-			return g_palmap[i].map;
-	}
-	if (g_dst_lut_pal != dp || g_dst_lut_ver != dp->version) rebuild_dst_lut(dp);
+	int identical = memcmp(sp->colors, dp->colors, (size_t)n * sizeof(SDL_Color)) == 0;
+
 	int slot = g_palmap_next; g_palmap_next = (g_palmap_next + 1) % OF_PALMAP_SLOTS;
+	g_palmap[slot].src = sp; g_palmap[slot].dst = dp; g_palmap[slot].src_ver = sp->version; g_palmap[slot].dst_ver = dp->version;
+	g_palmap[slot].identity = identical;
+	if (identical) return NULL;
+
+	if (g_dst_lut_pal != dp || g_dst_lut_ver != dp->version) rebuild_dst_lut(dp);
 	int sn = sp->ncolors > 256 ? 256 : sp->ncolors;
 	for (int i = 0; i < 256; i++) g_palmap[slot].map[i] = i < sn ? find_color(dp, sp->colors[i]) : (Uint8)i;
-	g_palmap[slot].src = sp; g_palmap[slot].dst = dp; g_palmap[slot].src_ver = sp->version; g_palmap[slot].dst_ver = dp->version;
 	return g_palmap[slot].map;
 }
 
