@@ -95,12 +95,21 @@ pre-releases; this is standard GitHub behaviour, not something the
 openFPGA Library docs state explicitly, so treat it as a reasonable
 assumption, not a confirmed rule.
 
+## Versioning
+
+The patch number counts commits: commit N of this repository carries version
+`0.1.N`. Every commit that ships bumps it in two places, which must agree.
+`version` in `dist/openjazz/Cores/negenii.OpenJazz/core.json` names the
+release ZIP and shows up in the Pocket's core list, and `OJ_VERSION` in
+`src/openjazz/Makefile` is what the game prints. N is the number of commits
+since the import commit that opens the history: `git rev-list --count
+b61859c5b4ec..HEAD`, plus one for the commit you are about to write.
+
 ## Steps, in order
 
 1. Push this repository to `https://github.com/negenii/openJazz_pocket`
-   (confirmed via the GitHub API that this repository does not exist there
-   yet: 404 on `repos/negenii/openJazz_pocket`). Needs the owner's `gh`
-   login; not part of this task.
+   (checked via the GitHub API: 404 on `repos/negenii/openJazz_pocket`, so
+   the name is still free).
 2. Tag and cut a GitHub release, with `releases/pocket/openjazz-v<version>.zip`
    (built by `make package`, see the root README) attached as its only
    asset.

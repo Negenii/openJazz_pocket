@@ -100,8 +100,7 @@ Directories worth knowing:
 | `src/openjazz/openjazz/` | OpenJazz, as a submodule |
 | `dist/openjazz/` | the core's static files: JSON, icon, platform art |
 | `tools/mkjazz.sh` | builds `jazz.iso` from your game files |
-| `tools/mkart.py` | regenerates the core icon and platform banner |
-| `art/` | those two images as editable PNGs |
+| `tools/mkart.py` | converts the core icon and platform banner to and from PNG |
 | `docs/RELEASING.md` | how a release and a catalogue listing are made |
 
 ## Licence

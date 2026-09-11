@@ -20,7 +20,7 @@ DIST      := $(ROOT)/dist/$(APP)
 OUT       := $(ROOT)/build/$(TARGET)/$(APP)
 GAME_ASSETS = $(wildcard *.iso)
 
-OJ_VERSION ?= 0.1.0-pocket
+OJ_VERSION ?= 0.1.46-pocket
 
 APPINC := -I$(OJ)/src -I$(OJ)/ext/argparse -I$(OJ)/ext/miniz -I$(OJ)/ext/xmp -I$(OJ)/ext/stb
 DEFS   := -DOPENFPGA -DOJ_SDL2 -DPORTABLE -DSDL_MAIN_HANDLED -DOJ_VERSION='"$(OJ_VERSION)"' \
