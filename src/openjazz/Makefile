@@ -43,10 +43,12 @@ HOT_SRCS := $(OJ)/ext/xmp/src/mixer.c $(OJ)/ext/xmp/src/mix_all.c $(OJ)/ext/xmp/
 
 .DEFAULT_GOAL := all
 EXCEPTIONS ?= 1
-# -O3 for the whole tree: measured on hardware as a clear gain over cxx.mk's
-# -O2 default (36-38 fps versus 32-37 in a level), and the port is nowhere
-# near the 48 MB code budget. Override per build with `make BASE_OPT=-O2`.
-BASE_OPT ?= -O3
+# Optimisation level: -O2, kept deliberately. A clean A/B on hardware (same
+# sources, only this flag differing) measured -O3 as SLOWER -- 29-30 fps in a
+# level against 31-33 at -O2 -- because -O3's extra inlining and unrolling
+# grew the text by ~4% and this core has only a 32 KB instruction cache.
+# Override per build with `make BASE_OPT=-O3` if that ever changes.
+BASE_OPT ?= -O2
 include $(CURDIR)/cxx.mk
 # cxx.mk defines CXXFLAGS with ':=', so this appends after it's set: force
 # of_sdl_extra.h (SDL2 macros/decls the shim doesn't provide) into every
