@@ -384,6 +384,13 @@ static void of_perf_present(void) {
 #define OF_PERF_PRESENT()                ((void)0)
 #endif
 
+/* Whether any byte of w equals the key byte replicated in kk. The classic
+ * has-zero-byte test: after xoring, a zero byte marks a match. */
+static inline int of_word_has_key(Uint32 w, Uint32 kk) {
+	Uint32 v = w ^ kk;
+	return (int)((v - 0x01010101u) & ~v & 0x80808080u);
+}
+
 int of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect) {
 	if (!src || !dst) return -1;
 
@@ -447,6 +454,7 @@ int of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst
 				 * runs between key pixels instead: a fully opaque row becomes a single
 				 * memcpy, which moves words rather than bytes. */
 				Uint8 k = (Uint8)key;
+				Uint32 kk = (Uint32)k * 0x01010101u;
 				for (int y = 0; y < sr.h; y++) {
 					const Uint8 *sp = (const Uint8 *)src->pixels + (size_t)(sr.y + y) * src->pitch + sr.x;
 					Uint8 *dp = (Uint8 *)dst->pixels + (size_t)(dy + y) * dst->pitch + dx;
@@ -455,6 +463,16 @@ int of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst
 						while (x < sr.w && sp[x] == k) x++;          /* skip transparent */
 						if (x >= sr.w) break;
 						int start = x;
+						/* Byte-wise until the source is word-aligned, then test four
+						 * pixels per iteration; art is mostly opaque, so most words
+						 * contain no key byte and the scan advances four at a time. */
+						while (x < sr.w && ((uintptr_t)(sp + x) & 3u) && sp[x] != k) x++;
+						while (x + 4 <= sr.w && !((uintptr_t)(sp + x) & 3u)) {
+							Uint32 w;
+							memcpy(&w, sp + x, sizeof w);
+							if (of_word_has_key(w, kk)) break;
+							x += 4;
+						}
 						while (x < sr.w && sp[x] != k) x++;           /* one opaque run */
 						memcpy(dp + start, sp + start, (size_t)(x - start));
 					}
