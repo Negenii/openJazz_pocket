@@ -90,19 +90,6 @@ void of_sdl_FreeSurface(SDL_Surface *s) {
 	SDL_FreeSurface(s);
 }
 
-int of_sdl_GetDesktopDisplayMode(int displayIndex, SDL_DisplayMode *mode) {
-	int rc = SDL_GetDesktopDisplayMode(displayIndex, mode);
-	if (rc != 0 || !mode) return rc;
-	int count = SDL_GetNumDisplayModes(displayIndex);
-	for (int i = 0; i < count; i++) {
-		SDL_DisplayMode m;
-		if (SDL_GetDisplayMode(displayIndex, i, &m) == 0
-		    && m.w == mode->w && m.h > mode->h)
-			mode->h = m.h;
-	}
-	return rc;
-}
-
 void of_sdl_SetWindowSize(SDL_Window *win, int w, int h) {
 	int cw = 0, ch = 0;
 	SDL_GetWindowSize(win, &cw, &ch);
