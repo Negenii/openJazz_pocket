@@ -6,6 +6,8 @@ jazz
 src/openjazz/jazz
 src/*/app.elf
 src/openjazz/openjazz_pc
+src/openjazz/openjazz-log.html
+src/openjazz/openjazz.cfg
 art/
 .DS_Store
 **/.DS_Store

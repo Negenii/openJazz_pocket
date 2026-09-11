@@ -66,6 +66,15 @@ PC_DEFS := -DOF_PC -DOPENFPGA -DOJ_SDL2 -DPORTABLE -DSDL_MAIN_HANDLED -DOJ_VERSI
 PC_SRCS_CXX := $(shell find $(OJ)/src -name '*.cpp' -not -path '*/jj2/*' | sort)
 PC_SRCS_C   := $(OJ)/ext/argparse/argparse.c $(OJ)/ext/miniz/miniz.c $(OJ)/ext/stb/stb_rect_pack.c \
                $(shell find $(OJ)/ext/xmp/src -name '*.c' | sort)
+
+# Desktop-only heap-peak instrumentation, opt-in: `make test MEMSTAT=1`.
+# of_memstat.cpp lives under $(PLAT), never $(OJ)/src, so it can't reach
+# SRCS_CXX (the cross build) even by accident.
+ifeq ($(MEMSTAT),1)
+PC_SRCS_CXX += $(PLAT)/of_memstat.cpp
+PC_DEFS     += -DMEMSTAT
+endif
+
 pcobj = $(PC_OBJDIR)/$(patsubst $(ROOT)/%,%,$(1)).o
 PC_OBJS := $(foreach s,$(PC_SRCS_CXX) $(PC_SRCS_C),$(call pcobj,$(s)))
 
