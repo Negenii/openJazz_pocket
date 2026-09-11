@@ -23,6 +23,11 @@ LIBSTDCXX := $(shell $(CXX) $(ARCH) -print-file-name=libstdc++.a)
 LIBSUPCXX := $(shell $(CXX) $(ARCH) -print-file-name=libsupc++.a)
 LIBGCC    := $(shell $(CXX) $(ARCH) -print-libgcc-file-name)
 LIBGCC_EH := $(shell $(CXX) $(ARCH) -print-file-name=libgcc_eh.a)
+# Bare-metal GCC folds the unwinder into libgcc.a; a separate libgcc_eh.a
+# exists only for toolchains built with shared libgcc. Link it only if found.
+ifeq ($(findstring /,$(LIBGCC_EH)),)
+  LIBGCC_EH :=
+endif
 
 SYSINC := -nostdinc $(CXXINC) -isystem $(MUSL)/include -isystem $(GXXINC) -I$(SDK)/include
 
