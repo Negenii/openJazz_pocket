@@ -4,6 +4,8 @@ releases/
 src/openjazz/*.iso
 jazz
 src/openjazz/jazz
+src/*/app.elf
+src/openjazz/openjazz_pc
 art/
 .DS_Store
 **/.DS_Store
