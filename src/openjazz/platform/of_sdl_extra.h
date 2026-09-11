@@ -9,6 +9,10 @@
  * this file must not assume <SDL.h> is already visible -- it pulls it in
  * itself. The #ifndef guards keep every definition here a no-op wherever
  * the shim (or a future, more complete one) already defines the name.
+ * Force-including this into every TU (rather than the more surgical
+ * per-file #include we used before) is a deliberate trade-off: it costs a
+ * bit of extra preprocessing on files that don't need any of this, in
+ * exchange for zero platform-specific includes inside upstream OpenJazz.
  */
 #ifndef OF_SDL_EXTRA_H
 #define OF_SDL_EXTRA_H
