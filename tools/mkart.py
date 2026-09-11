@@ -81,9 +81,21 @@ class Canvas:
             cx += (GLYPH_W + 1) * scale
         return cx - x
 
-    def to_bin(self):
+    def to_bin(self, transpose=False):
+        """Two bytes per pixel, brightness first, low byte zero.
+
+        The core icon is stored as it reads: 36 rows of 36 pixels. The
+        platform banner is stored ROTATED -- the file is 165 pixels wide and
+        521 tall. That is not a guess: the SDK's own Platforms/_images art
+        only resolves into legible text when read at 165x521, and reading it
+        at 521x165 gives noise, which is exactly what a banner written the
+        naive way looks like on the Pocket.
+        """
+        rows = self.px
+        if transpose:
+            rows = [[self.px[y][x] for y in range(self.h)] for x in range(self.w)]
         out = bytearray()
-        for row in self.px:
+        for row in rows:
             for v in row:
                 out += bytes((v & 0xFF, 0x00))
         return bytes(out)
@@ -112,35 +124,40 @@ def text_width(s, scale):
 
 
 def draw_broken_image(c, x, y, size, thick):
-    """Our own take on the classic 'image did not load' placeholder: a frame
-    with a stepped bite out of the top-right corner, three shapes inside."""
-    c.frame(x, y, size, size, thick, BLACK)
+    """Our own take on the classic "image did not load" placeholder.
 
-    # Stepped tear across the top-right corner: erase the frame there, then
-    # draw the staircase that reads as a torn edge.
+    The frame is deliberately interrupted along the top-right corner: the
+    tear leaves real gaps in the outline rather than a neatly closed
+    staircase. The three shapes inside sit on plain white, each in its own
+    grey so they stay distinct without colour.
+    """
     bite = size // 3
-    c.rect(x + size - bite, y, bite, thick, WHITE)
-    c.rect(x + size - thick, y, thick, bite, WHITE)
-    steps = 4
-    sw = max(thick, bite // steps)
-    for i in range(steps):
-        sx = x + size - bite + i * sw
-        sy = y + i * sw
-        c.rect(sx, sy, sw + thick, thick, BLACK)
-        c.rect(sx + sw, sy, thick, sw + thick, BLACK)
 
-    # Three shapes, in three greys so they stay distinct without colour.
+    # Frame, with the torn corner left open: the top edge stops short of it
+    # and the right edge starts below it.
+    c.rect(x, y, size - bite, thick, BLACK)                     # top
+    c.rect(x, y + size - thick, size, thick, BLACK)             # bottom
+    c.rect(x, y, thick, size, BLACK)                            # left
+    c.rect(x + size - thick, y + bite, thick, size - bite, BLACK)  # right
+
+    # The tear itself: short dashes stepping down to the right, with gaps
+    # between them, so the outline reads as broken rather than merely bent.
+    step = max(thick, bite // 3)
+    for i in range(3):
+        sx = x + size - bite + i * step
+        sy = y + i * step
+        c.rect(sx, sy, step - thick, thick, BLACK)              # horizontal dash
+        if i < 2:
+            c.rect(sx + step - thick, sy, thick, step - thick, BLACK)  # riser
+
+    # Three shapes on white, three greys.
     unit = max(2, size // 9)
-    # top: a plus/blob
-    bx, by = x + size // 3, y + size // 4
-    c.rect(bx, by, unit * 2, unit * 2, GREY_DARK)
-    c.rect(bx - unit, by + unit // 2, unit, unit, GREY_DARK)
-    # bottom-left: a staircase
-    sx, sy = x + unit, y + size - unit * 4
+    inset = thick + unit // 2
+    c.rect(x + size // 3, y + inset + unit, unit * 2, unit * 2, GREY_DARK)
+    sx, sy = x + inset, y + size - inset - unit * 3
     for i in range(3):
         c.rect(sx, sy + i * unit, unit * (3 - i), unit, GREY_MID)
-    # right: a square
-    c.rect(x + size - unit * 4, y + size // 2, unit * 2, unit * 2, GREY_LIGHT)
+    c.rect(x + size - inset - unit * 3, y + size // 2, unit * 2, unit * 2, GREY_LIGHT)
 
 
 def build_icon():
@@ -191,7 +208,7 @@ def main():
         with open(icon_path, "wb") as f:
             f.write(icon.to_bin())
         with open(a.platform_image, "wb") as f:
-            f.write(banner.to_bin())
+            f.write(banner.to_bin(transpose=True))
         print("wrote %s (%d bytes)" % (icon_path, ICON_W * ICON_H * 2))
         print("wrote %s (%d bytes)" % (a.platform_image, BANNER_W * BANNER_H * 2))
 
