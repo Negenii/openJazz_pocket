@@ -25,6 +25,12 @@ DEFS   := -DOPENFPGA -DOJ_SDL2 -DPORTABLE -DSDL_MAIN_HANDLED -DOJ_VERSION='"$(OJ
           -DMINIZ_NO_ARCHIVE_APIS -DLIBXMP_STATIC -DLIBXMP_CORE_PLAYER -DLIBXMP_CORE_DISABLE_IT -DHAVE_POWF \
           -DOF_SDL_NO_CONTROLLER_EVENTS
 
+# Opt-in frame-time breakdown printed as a terminal overlay on the Pocket:
+#   make PERF=1
+ifeq ($(PERF),1)
+DEFS += -DOF_PERF
+endif
+
 SRCS_CXX := $(shell find $(OJ)/src -name '*.cpp' -not -path '*/jj2/*' | sort)
 SRCS_C   := $(OJ)/ext/argparse/argparse.c $(OJ)/ext/miniz/miniz.c $(OJ)/ext/stb/stb_rect_pack.c \
             $(shell find $(OJ)/ext/xmp/src -name '*.c' | sort) \

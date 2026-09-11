@@ -208,6 +208,178 @@ static const Uint8 *palette_map(const SDL_Surface *src, const SDL_Surface *dst) 
 	return g_palmap[slot].map;
 }
 
+/* ---- Opt-in frame-time breakdown (`make PERF=1`), task-10b ------------
+ * Counts what happens thousands of times a frame (blitted pixels, split
+ * by path; bytes moved by the texture update and the window copy)
+ * instead of timing it -- of_time_us() is an ecall -- and times directly
+ * only what happens tens of times a second: the whole frame, and the
+ * audio pump (where OpenJazz's xmp mixing runs, in the callback we own).
+ * A one-time calibration converts the per-pixel counts to milliseconds.
+ * Every call site below collapses to nothing when OF_PERF is off, so the
+ * release build pays for none of this: no clock read, no counter update,
+ * no extra branch survives the preprocessor.
+ */
+#if defined(OF_PERF) && !defined(OF_PC)
+#include "of_timer.h"     /* of_time_us(): an ecall, so call it rarely */
+#include "of_video.h"     /* of_video_set_display_mode() */
+#include <stdio.h>
+
+static unsigned long long g_perf_ck_px, g_perf_op_px;  /* pixels, by blit path */
+static unsigned long long g_perf_tex_b, g_perf_cpy_b;  /* bytes moved */
+static unsigned g_perf_blits;                          /* blit calls this window */
+static unsigned g_perf_frames;                         /* frames this window */
+static unsigned g_perf_frame_us, g_perf_aud_us;        /* accumulated this window */
+static unsigned g_perf_prev_us;
+static int      g_perf_have_prev;
+static unsigned g_perf_ck_ns_px, g_perf_op_ns_px;      /* calibrated once, ns/pixel */
+static int      g_perf_calibrated;
+static int      g_perf_overlay_on;
+
+/* Both paths cost a fixed amount per pixel; measure it once so the cheap
+ * per-frame pixel counts can be converted to milliseconds. Called lazily
+ * on the first frame (not at load time), so the video mode is already
+ * up. The SDL_* names below are the real shim functions: the redirect
+ * macros in of_sdl_extra.h are inactive in this file (OF_SDL_EXTRA_IMPL
+ * is defined above), which is what we want -- we are measuring the
+ * shim's own blit loops, the same ones the game's blits fall through to
+ * whenever our layer doesn't have a faster path of its own. */
+static void of_perf_calibrate(void) {
+	SDL_Surface *src = SDL_CreateRGBSurfaceWithFormat(0, 32, 32, 8, SDL_PIXELFORMAT_INDEX8);
+	SDL_Surface *dst = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 8, SDL_PIXELFORMAT_INDEX8);
+	if (!src || !dst) {
+		if (src) SDL_FreeSurface(src);
+		if (dst) SDL_FreeSurface(dst);
+		return; /* rates stay 0: the overlay prints nothing */
+	}
+	/* A realistic tile: mostly opaque with some key pixels. */
+	memset(src->pixels, 7, (size_t)src->pitch * src->h);
+	for (int y = 0; y < src->h; y += 4)
+		memset((Uint8 *)src->pixels + (size_t)y * src->pitch, 0, 8);
+
+	const int reps = 400;
+	SDL_Rect sr = {0, 0, 32, 32}, dr = {0, 0, 32, 32};
+
+	SDL_SetColorKey(src, SDL_TRUE, 0);
+	unsigned t0 = of_time_us();
+	for (int i = 0; i < reps; i++) { SDL_Rect d = dr; SDL_UpperBlit(src, &sr, dst, &d); }
+	unsigned t1 = of_time_us();
+
+	SDL_SetColorKey(src, SDL_FALSE, 0);
+	for (int i = 0; i < reps; i++) { SDL_Rect d = dr; SDL_UpperBlit(src, &sr, dst, &d); }
+	unsigned t2 = of_time_us();
+
+	/* nanoseconds per pixel, kept as integers */
+	unsigned px = (unsigned)reps * 32u * 32u;
+	g_perf_ck_ns_px = px ? ((t1 - t0) * 1000u) / px : 0;
+	g_perf_op_ns_px = px ? ((t2 - t1) * 1000u) / px : 0;
+	SDL_FreeSurface(src); SDL_FreeSurface(dst);
+}
+
+/* Pixel counters: incremented after clipping is known, using the same
+ * clipped w*h the blit will actually touch, and the same colorkey/bpp
+ * test of_sdl2.c's SDL_UpperBlit uses to choose its row-memcpy versus
+ * per-pixel path (src/dst/of_sdl2.c ~lines 390/396) -- computed here
+ * independently of which branch of of_sdl_UpperBlit below actually does
+ * the copy (the palette-remap loop or a fall-through to the shim), so
+ * the count never depends on that choice. A deferred (skipped) blit
+ * never reaches this call: its pixels are accounted for once, later, as
+ * the bytes SDL_UpdateTexture reads straight out of `screen`. */
+static void of_perf_count_blit(SDL_Surface *src, const SDL_Rect *srcrect,
+                                SDL_Surface *dst, const SDL_Rect *dstrect) {
+	g_perf_blits++;
+	if (!src->format || !dst->format) return;
+	if (src->format->BytesPerPixel != 1 || dst->format->BytesPerPixel != 1) return;
+
+	SDL_Rect sr;
+	if (srcrect) sr = *srcrect; else { sr.x = 0; sr.y = 0; sr.w = src->w; sr.h = src->h; }
+	int dx = dstrect ? dstrect->x : 0, dy = dstrect ? dstrect->y : 0;
+	if (sr.x < 0) { dx -= sr.x; sr.w += sr.x; sr.x = 0; }
+	if (sr.y < 0) { dy -= sr.y; sr.h += sr.y; sr.y = 0; }
+	if (sr.x + sr.w > src->w) sr.w = src->w - sr.x;
+	if (sr.y + sr.h > src->h) sr.h = src->h - sr.y;
+	SDL_Rect cl = dst->clip_rect;
+	if (dx < cl.x) { int d = cl.x - dx; sr.w -= d; dx = cl.x; }
+	if (dy < cl.y) { int d = cl.y - dy; sr.h -= d; dy = cl.y; }
+	if (dx + sr.w > cl.x + cl.w) sr.w = cl.x + cl.w - dx;
+	if (dy + sr.h > cl.y + cl.h) sr.h = cl.y + cl.h - dy;
+	if (sr.w <= 0 || sr.h <= 0) return; /* nothing will actually be touched */
+
+	Uint32 key = 0;
+	int ck = (SDL_GetColorKey(src, &key) == 0);
+	unsigned long long px = (unsigned long long)sr.w * (unsigned long long)sr.h;
+	if (ck) g_perf_ck_px += px; else g_perf_op_px += px;
+}
+
+/* Bytes handed to SDL_UpdateTexture: the rect (or the whole texture)
+ * times the texture's own bytes/pixel, matching what of_sdl2.c's
+ * SDL_UpdateTexture actually copies. */
+static void of_perf_count_tex(SDL_Texture *texture, const SDL_Rect *rect) {
+	Uint32 format; int access, tw, th;
+	if (!texture || SDL_QueryTexture(texture, &format, &access, &tw, &th) != 0) return;
+	int w = rect ? rect->w : tw, h = rect ? rect->h : th;
+	if (w <= 0 || h <= 0) return;
+	int bpp = SDL_BITSPERPIXEL(format) / 8;
+	if (bpp <= 0) bpp = 1;
+	g_perf_tex_b += (unsigned long long)w * (unsigned long long)h * (unsigned long long)bpp;
+}
+
+#define OF_PERF_COUNT_BLIT(s, sr, d, dr) of_perf_count_blit((s), (sr), (d), (dr))
+#define OF_PERF_TEX_BYTES(t, r)          of_perf_count_tex((t), (r))
+#define OF_PERF_CPY_BYTES(w, h, bpp) \
+	(g_perf_cpy_b += (unsigned long long)(w) * (unsigned long long)(h) * (unsigned long long)(bpp))
+#define OF_PERF_AUDIO_BEGIN() unsigned __of_perf_t0 = of_time_us()
+#define OF_PERF_AUDIO_END()   (g_perf_aud_us += (unsigned)(of_time_us() - __of_perf_t0))
+
+/* Once the accumulated frame time passes 1s: convert the counts to
+ * milliseconds, print one overlay line, then reset every counter.
+ * Nothing is printed while the calibration rates are still zero (the
+ * calibration surfaces failed to allocate). */
+static void of_perf_present(void) {
+	if (!g_perf_calibrated) { of_perf_calibrate(); g_perf_calibrated = 1; }
+
+	unsigned now = of_time_us();
+	if (g_perf_have_prev) g_perf_frame_us += (unsigned)(now - g_perf_prev_us);
+	g_perf_prev_us = now;
+	g_perf_have_prev = 1;
+	g_perf_frames++;
+
+	if (g_perf_frame_us < 1000000u) return;
+
+	if (g_perf_ck_ns_px || g_perf_op_ns_px) {
+		if (!g_perf_overlay_on) { of_video_set_display_mode(2); g_perf_overlay_on = 1; }
+
+		unsigned long long blit_ns = g_perf_ck_px * (unsigned long long)g_perf_ck_ns_px
+		                            + g_perf_op_px * (unsigned long long)g_perf_op_ns_px;
+		unsigned long long copy_ns = (g_perf_tex_b + g_perf_cpy_b) * (unsigned long long)g_perf_op_ns_px;
+		unsigned long long aud_ns   = (unsigned long long)g_perf_aud_us * 1000ull;
+		unsigned long long frame_ns = (unsigned long long)g_perf_frame_us * 1000ull;
+		unsigned long long used_ns  = aud_ns + blit_ns + copy_ns;
+		unsigned long long rest_ns  = frame_ns > used_ns ? frame_ns - used_ns : 0ull;
+
+		printf("[perf] fps=%u frame=%u.%02ums aud=%u.%02ums blit=%u.%02ums(ck=%uk op=%uk px) copy=%u.%02ums rest=%u.%02ums\n",
+			g_perf_frames,
+			(unsigned)(frame_ns / 1000000ull), (unsigned)((frame_ns % 1000000ull) / 10000ull),
+			(unsigned)(aud_ns   / 1000000ull), (unsigned)((aud_ns   % 1000000ull) / 10000ull),
+			(unsigned)(blit_ns  / 1000000ull), (unsigned)((blit_ns  % 1000000ull) / 10000ull),
+			(unsigned)(g_perf_ck_px / 1000ull), (unsigned)(g_perf_op_px / 1000ull),
+			(unsigned)(copy_ns  / 1000000ull), (unsigned)((copy_ns  % 1000000ull) / 10000ull),
+			(unsigned)(rest_ns  / 1000000ull), (unsigned)((rest_ns  % 1000000ull) / 10000ull));
+	}
+
+	g_perf_frame_us = 0; g_perf_aud_us = 0; g_perf_frames = 0; g_perf_blits = 0;
+	g_perf_ck_px = 0; g_perf_op_px = 0; g_perf_tex_b = 0; g_perf_cpy_b = 0;
+}
+#define OF_PERF_PRESENT() of_perf_present()
+
+#else /* !(OF_PERF && !OF_PC): every hook below is a no-op, nothing survives */
+#define OF_PERF_COUNT_BLIT(s, sr, d, dr) ((void)0)
+#define OF_PERF_TEX_BYTES(t, r)          ((void)0)
+#define OF_PERF_CPY_BYTES(w, h, bpp)     ((void)0)
+#define OF_PERF_AUDIO_BEGIN()            ((void)0)
+#define OF_PERF_AUDIO_END()              ((void)0)
+#define OF_PERF_PRESENT()                ((void)0)
+#endif
+
 int of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect) {
 	if (!src || !dst) return -1;
 
@@ -227,6 +399,8 @@ int of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst
 		/* Someone is writing into the surface whose copy we deferred. */
 		of_sdl_flush_deferred_blit();
 	}
+
+	OF_PERF_COUNT_BLIT(src, srcrect, dst, dstrect);
 
 	const Uint8 *map = palette_map(src, dst);
 	if (!map) return SDL_UpperBlit(src, srcrect, dst, dstrect);
@@ -284,6 +458,7 @@ int of_sdl_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture,
 					pixels, tw, th, SDL_BITSPERPIXEL(format), pitch, format);
 				if (view) {
 					SDL_Rect d = dr;
+					OF_PERF_CPY_BYTES(sr.w, sr.h, SDL_BITSPERPIXEL(format) / 8);
 					int rc = SDL_UpperBlit(view, &sr, dst, &d);
 					SDL_FreeSurface(view);
 					SDL_UnlockTexture(texture);
@@ -303,6 +478,7 @@ int of_sdl_RenderClear(SDL_Renderer *renderer) {
 
 int of_sdl_UpdateTexture(SDL_Texture *texture, const SDL_Rect *rect,
                          const void *pixels, int pitch) {
+	OF_PERF_TEX_BYTES(texture, rect);
 	if (g_deferred_blit_dst) {
 		SDL_Surface *pending = g_deferred_blit_dst;
 		if (g_oj_screen && pixels == pending->pixels) {
@@ -338,6 +514,7 @@ static int               g_audio_target_pairs;   /* queue depth we maintain */
 static void of_sdl_audio_pump(void) {
 	static int16_t buf[2048];            /* 1024 stereo pairs */
 	if (!g_audio_cb || g_audio_paused || !g_audio_dev) return;
+	OF_PERF_AUDIO_BEGIN();
 	for (int guard = 0; guard < 8; guard++) {
 		int queued = (int)(SDL_GetQueuedAudioSize(g_audio_dev) / 4);
 		int want = g_audio_target_pairs - queued;
@@ -346,6 +523,7 @@ static void of_sdl_audio_pump(void) {
 		g_audio_cb(g_audio_userdata, (Uint8 *)buf, want * 4);
 		SDL_QueueAudio(g_audio_dev, buf, (Uint32)want * 4);
 	}
+	OF_PERF_AUDIO_END();
 }
 
 SDL_AudioDeviceID of_sdl_OpenAudioDevice(const char *device, int iscapture,
@@ -401,5 +579,6 @@ void of_sdl_Delay(Uint32 ms) {
 
 void of_sdl_RenderPresent(SDL_Renderer *renderer) {
 	of_sdl_audio_pump();
+	OF_PERF_PRESENT();
 	SDL_RenderPresent(renderer);
 }
