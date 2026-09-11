@@ -223,6 +223,7 @@ static const Uint8 *palette_map(const SDL_Surface *src, const SDL_Surface *dst) 
 #include "of_timer.h"     /* of_time_us(): an ecall, so call it rarely */
 #include "of_video.h"     /* of_video_set_display_mode() */
 #include <stdio.h>
+#include <unistd.h>
 
 static unsigned long long g_perf_ck_px, g_perf_op_px;  /* pixels, by blit path */
 static unsigned long long g_perf_tex_b, g_perf_cpy_b;  /* bytes moved */
@@ -356,7 +357,12 @@ static void of_perf_present(void) {
 		unsigned long long used_ns  = aud_ns + blit_ns + copy_ns;
 		unsigned long long rest_ns  = frame_ns > used_ns ? frame_ns - used_ns : 0ull;
 
-		printf("[perf] fps=%u frame=%u.%02ums aud=%u.%02ums blit=%u.%02ums(ck=%uk op=%uk px) copy=%u.%02ums rest=%u.%02ums\n",
+		/* stdio here is fully buffered, so one printf a second would sit in
+		 * the buffer for half a minute before reaching the terminal. Format
+		 * locally and write(2) straight to fd 1 so each line appears at once. */
+		char line[192];
+		int n = snprintf(line, sizeof line,
+			"[perf] fps=%u frame=%u.%02ums aud=%u.%02ums blit=%u.%02ums(ck=%uk op=%uk px) copy=%u.%02ums rest=%u.%02ums\n",
 			g_perf_frames,
 			(unsigned)(frame_ns / 1000000ull), (unsigned)((frame_ns % 1000000ull) / 10000ull),
 			(unsigned)(aud_ns   / 1000000ull), (unsigned)((aud_ns   % 1000000ull) / 10000ull),
@@ -364,6 +370,7 @@ static void of_perf_present(void) {
 			(unsigned)(g_perf_ck_px / 1000ull), (unsigned)(g_perf_op_px / 1000ull),
 			(unsigned)(copy_ns  / 1000000ull), (unsigned)((copy_ns  % 1000000ull) / 10000ull),
 			(unsigned)(rest_ns  / 1000000ull), (unsigned)((rest_ns  % 1000000ull) / 10000ull));
+		if (n > 0) { ssize_t w = write(1, line, (size_t)n); (void)w; }
 	}
 
 	g_perf_frame_us = 0; g_perf_aud_us = 0; g_perf_frames = 0; g_perf_blits = 0;
