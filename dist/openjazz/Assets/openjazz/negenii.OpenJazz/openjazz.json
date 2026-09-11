@@ -1,0 +1,21 @@
+{
+    "instance": {
+        "magic": "APF_VER_1",
+        "data_slots": [
+            { "id": 1, "filename": "os.bin" },
+            { "id": 2, "filename": "openjazz.ini" },
+            { "id": 3, "filename": "openjazz.elf" },
+            { "id": 7, "filename": "bank.ofsf" },
+            { "id": 10, "filename": "openjazz_0.sav" },
+            { "id": 11, "filename": "openjazz_1.sav" },
+            { "id": 12, "filename": "openjazz_2.sav" },
+            { "id": 13, "filename": "openjazz_3.sav" },
+            { "id": 14, "filename": "openjazz_4.sav" },
+            { "id": 15, "filename": "openjazz_5.sav" },
+            { "id": 16, "filename": "openjazz_6.sav" },
+            { "id": 17, "filename": "openjazz_7.sav" },
+            { "id": 18, "filename": "openjazz_8.sav" },
+            { "id": 19, "filename": "openjazz_9.sav" }
+        ]
+    }
+}

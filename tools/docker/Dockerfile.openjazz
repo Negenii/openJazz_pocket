@@ -1,0 +1,33 @@
+# openfpgaOS — OpenJazz RISC-V build container.
+#
+# OpenJazz is C++ and links the toolchain's real libstdc++/libsupc++ (the
+# SDK's C-only firmware image and Homebrew's riscv64-elf-gcc ship no
+# bare-metal C++ runtime). Same approach as openfpgaOS/Diablo: the xPack
+# riscv-none-elf-gcc toolchain carries newlib + a full libstdc++ multilib
+# including rv32imafc/ilp32f. xorriso builds jazz.iso, unzip unpacks the
+# shareware self-extracting archive.
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+ARG XPACK_VER=15.2.0-1
+ARG TARGETARCH
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        make python3 curl xz-utils bsdmainutils ca-certificates \
+        xorriso unzip \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+      arm64) XARCH=linux-arm64 ;; \
+      amd64) XARCH=linux-x64   ;; \
+      *) echo "unsupported TARGETARCH='${TARGETARCH}'" >&2; exit 1 ;; \
+    esac; \
+    url="https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v${XPACK_VER}/xpack-riscv-none-elf-gcc-${XPACK_VER}-${XARCH}.tar.gz"; \
+    mkdir -p /opt/xpack; \
+    curl -fsSL "$url" | tar -xz -C /opt/xpack --strip-components=1; \
+    /opt/xpack/bin/riscv-none-elf-g++ --version
+
+ENV PATH=/opt/xpack/bin:$PATH
