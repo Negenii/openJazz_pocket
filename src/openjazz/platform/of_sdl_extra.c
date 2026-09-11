@@ -336,7 +336,13 @@ static void of_perf_count_tex(SDL_Texture *texture, const SDL_Rect *rect) {
  * Nothing is printed while the calibration rates are still zero (the
  * calibration surfaces failed to allocate). */
 static void of_perf_present(void) {
-	if (!g_perf_calibrated) { of_perf_calibrate(); g_perf_calibrated = 1; }
+	if (!g_perf_calibrated) {
+		/* Terminal text over the framebuffer, so the numbers are readable
+		 * without a debug cable. Switched on before anything can fail. */
+		of_video_set_display_mode(2);
+		of_perf_calibrate();
+		g_perf_calibrated = 1;
+	}
 
 	unsigned now = of_time_us();
 	if (g_perf_have_prev) g_perf_frame_us += (unsigned)(now - g_perf_prev_us);
@@ -344,34 +350,25 @@ static void of_perf_present(void) {
 	g_perf_have_prev = 1;
 	g_perf_frames++;
 
-	if (g_perf_frame_us < 1000000u) return;
+	/* Trigger on a frame count, not on elapsed time: if the microsecond
+	 * clock were unavailable the time-based trigger would never fire and we
+	 * would learn nothing at all. Print the raw numbers unconditionally and
+	 * let the reader judge them. The terminal is 40 columns wide at this
+	 * resolution, so keep each line short. */
+	if (g_perf_frames < 60) return;
 
-	if (g_perf_ck_ns_px || g_perf_op_ns_px) {
-		if (!g_perf_overlay_on) { of_video_set_display_mode(2); g_perf_overlay_on = 1; }
+	char line[96];
+	int n = snprintf(line, sizeof line,
+		"[p] %uf dt=%ums aud=%ums\n",
+		g_perf_frames, g_perf_frame_us / 1000u, g_perf_aud_us / 1000u);
+	if (n > 0) { ssize_t w = write(1, line, (size_t)n); (void)w; }
 
-		unsigned long long blit_ns = g_perf_ck_px * (unsigned long long)g_perf_ck_ns_px
-		                            + g_perf_op_px * (unsigned long long)g_perf_op_ns_px;
-		unsigned long long copy_ns = (g_perf_tex_b + g_perf_cpy_b) * (unsigned long long)g_perf_op_ns_px;
-		unsigned long long aud_ns   = (unsigned long long)g_perf_aud_us * 1000ull;
-		unsigned long long frame_ns = (unsigned long long)g_perf_frame_us * 1000ull;
-		unsigned long long used_ns  = aud_ns + blit_ns + copy_ns;
-		unsigned long long rest_ns  = frame_ns > used_ns ? frame_ns - used_ns : 0ull;
-
-		/* stdio here is fully buffered, so one printf a second would sit in
-		 * the buffer for half a minute before reaching the terminal. Format
-		 * locally and write(2) straight to fd 1 so each line appears at once. */
-		char line[192];
-		int n = snprintf(line, sizeof line,
-			"[perf] fps=%u frame=%u.%02ums aud=%u.%02ums blit=%u.%02ums(ck=%uk op=%uk px) copy=%u.%02ums rest=%u.%02ums\n",
-			g_perf_frames,
-			(unsigned)(frame_ns / 1000000ull), (unsigned)((frame_ns % 1000000ull) / 10000ull),
-			(unsigned)(aud_ns   / 1000000ull), (unsigned)((aud_ns   % 1000000ull) / 10000ull),
-			(unsigned)(blit_ns  / 1000000ull), (unsigned)((blit_ns  % 1000000ull) / 10000ull),
-			(unsigned)(g_perf_ck_px / 1000ull), (unsigned)(g_perf_op_px / 1000ull),
-			(unsigned)(copy_ns  / 1000000ull), (unsigned)((copy_ns  % 1000000ull) / 10000ull),
-			(unsigned)(rest_ns  / 1000000ull), (unsigned)((rest_ns  % 1000000ull) / 10000ull));
-		if (n > 0) { ssize_t w = write(1, line, (size_t)n); (void)w; }
-	}
+	n = snprintf(line, sizeof line,
+		"[p] ck=%uk op=%uk cp=%uk ns=%u/%u\n",
+		(unsigned)(g_perf_ck_px / 1000ull), (unsigned)(g_perf_op_px / 1000ull),
+		(unsigned)((g_perf_tex_b + g_perf_cpy_b) / 1000ull),
+		g_perf_ck_ns_px, g_perf_op_ns_px);
+	if (n > 0) { ssize_t w = write(1, line, (size_t)n); (void)w; }
 
 	g_perf_frame_us = 0; g_perf_aud_us = 0; g_perf_frames = 0; g_perf_blits = 0;
 	g_perf_ck_px = 0; g_perf_op_px = 0; g_perf_tex_b = 0; g_perf_cpy_b = 0;
