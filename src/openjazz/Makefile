@@ -5,8 +5,6 @@
 #   make package         zip the core into releases/pocket/
 #   make test            desktop SDL2 build (./openjazz_pc) for fast iteration
 #   make clean
-#
-# STLTEST=1 builds src/openjazz/stltest/main.cpp instead of the game (Task 2 only).
 
 APP       := openjazz
 TARGET   ?= pocket
@@ -27,15 +25,10 @@ DEFS   := -DOPENFPGA -DOJ_SDL2 -DPORTABLE -DSDL_MAIN_HANDLED -DOJ_VERSION='"$(OJ
           -DMINIZ_NO_ARCHIVE_APIS -DLIBXMP_STATIC -DLIBXMP_CORE_PLAYER -DLIBXMP_CORE_DISABLE_IT -DHAVE_POWF \
           -DOF_SDL_NO_CONTROLLER_EVENTS
 
-ifeq ($(STLTEST),1)
-SRCS_CXX := $(CURDIR)/stltest/main.cpp
-SRCS_C   := $(PLAT)/of_libc_compat.c $(SDK)/of_init.c
-else
 SRCS_CXX := $(shell find $(OJ)/src -name '*.cpp' -not -path '*/jj2/*' | sort)
 SRCS_C   := $(OJ)/ext/argparse/argparse.c $(OJ)/ext/miniz/miniz.c $(OJ)/ext/stb/stb_rect_pack.c \
             $(shell find $(OJ)/ext/xmp/src -name '*.c' | sort) \
-            $(PLAT)/of_libc_compat.c $(SDK)/of_init.c $(SDK)/of_sdl2.c
-endif
+            $(PLAT)/of_libc_compat.c $(SDK)/of_init.c $(SDK)/of_sdl2.c $(PLAT)/of_sdl_extra.c
 
 # Speed-critical TUs at -O3: xmp mixer + the blitters.
 HOT_SRCS := $(OJ)/ext/xmp/src/mixer.c $(OJ)/ext/xmp/src/mix_all.c $(OJ)/ext/xmp/src/virtual.c \
@@ -43,7 +36,13 @@ HOT_SRCS := $(OJ)/ext/xmp/src/mixer.c $(OJ)/ext/xmp/src/mix_all.c $(OJ)/ext/xmp/
             $(OJ)/src/io/gfx/anim.cpp $(OJ)/src/io/gfx/font.cpp
 
 .DEFAULT_GOAL := all
+EXCEPTIONS ?= 1
 include $(CURDIR)/cxx.mk
+# cxx.mk defines CXXFLAGS with ':=', so this appends after it's set: force
+# of_sdl_extra.h (SDL2 macros/decls the shim doesn't provide) into every
+# C++ TU without OpenJazz sources referencing it directly (upstream can't
+# take a #include of a platform-only header).
+CXXFLAGS += -include $(PLAT)/of_sdl_extra.h
 
 all: app.elf release
 
