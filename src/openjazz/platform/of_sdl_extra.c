@@ -467,11 +467,15 @@ int of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst
 						 * pixels per iteration; art is mostly opaque, so most words
 						 * contain no key byte and the scan advances four at a time. */
 						while (x < sr.w && ((uintptr_t)(sp + x) & 3u) && sp[x] != k) x++;
-						while (x + 4 <= sr.w && !((uintptr_t)(sp + x) & 3u)) {
-							Uint32 w;
-							memcpy(&w, sp + x, sizeof w);
-							if (of_word_has_key(w, kk)) break;
-							x += 4;
+						if (x < sr.w && !((uintptr_t)(sp + x) & 3u)) {
+							/* Aligned from here on: adding 4 preserves alignment, so
+							 * the test does not belong inside the loop. */
+							while (x + 4 <= sr.w) {
+								Uint32 w;
+								memcpy(&w, sp + x, sizeof w);
+								if (of_word_has_key(w, kk)) break;
+								x += 4;
+							}
 						}
 						while (x < sr.w && sp[x] != k) x++;           /* one opaque run */
 						memcpy(dp + start, sp + start, (size_t)(x - start));
