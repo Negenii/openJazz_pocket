@@ -91,12 +91,18 @@ class Canvas:
         at 521x165 gives noise, which is exactly what a banner written the
         naive way looks like on the Pocket.
         """
-        rows = self.px
+        # The Pocket draws these images inverted: a byte of 0xFF shows as
+        # black on screen. Confirmed on hardware -- art written straight
+        # through came back with every tone reversed. So invert on the way
+        # out and keep the PNGs the right way round, which is what anyone
+        # editing them expects.
+        rows = [[0xFF - v for v in row] for row in self.px]
         if transpose:
             # Rotate rather than merely transpose: a plain transpose put the
             # banner on screen mirrored left to right, so the source column is
             # read from the far edge.
-            rows = [[self.px[y][self.w - 1 - x] for y in range(self.h)]
+            src = rows
+            rows = [[src[y][self.w - 1 - x] for y in range(self.h)]
                     for x in range(self.w)]
         out = bytearray()
         for row in rows:
