@@ -1,71 +1,88 @@
-# OpenJazz — openfpgaOS custom core
+# OpenJazz — openfpgaOS custom core (Analogue Pocket)
 #
-# This Makefile builds a CUSTOM CORE: a standalone openFPGA core
-# wrapping a single app. It owns its own dist/, build/, and ZIP.
+#   make                 build app.elf (in the container) + assemble build/pocket/openjazz/
+#   make copy            deploy to the Pocket SD card
+#   make package         zip the core into releases/pocket/
+#   make test            desktop SDL2 build (./openjazz_pc) for fast iteration
+#   make clean
 #
-# Targets:
-#   make              Build the custom core
-#   make debug        Build, push via UART, stream console
-#   make copy         Copy this custom core to Pocket SD
-#   make package      Package this custom core into a ZIP
-#   make test         Test on desktop (SDL2)
-#   make clean        Remove build artifacts
-#
+# STLTEST=1 builds src/openjazz/stltest/main.cpp instead of the game (Task 2 only).
 
-APP       = openjazz
-# Platform target: pocket (APF SD tree under build/pocket/<app>/) or
-# mister (disk-image bundle under build/mister/<app>/). Overridable per
-# invocation: `make TARGET=mister`, or from the SDK root Makefile.
+APP       := openjazz
 TARGET   ?= pocket
-# MiSTer network target for `make copy TARGET=mister` (override: MISTER_IP=...).
 MISTER_IP ?= mister.local
-SDK_DIR   = ../sdk
-ROOT      = $(realpath $(CURDIR)/../..)
-OBJ_DIR   = $(ROOT)/.obj/$(APP)
-BUILD_DIR = $(OBJ_DIR)
-DIST      = $(ROOT)/dist/$(APP)
-OUT       = $(ROOT)/build/$(TARGET)/$(APP)
-RUNTIME   = $(ROOT)/runtime
+ROOT      := $(realpath $(CURDIR)/../..)
+SDK       := $(ROOT)/src/sdk
+OJ        := $(CURDIR)/openjazz
+PLAT      := $(CURDIR)/platform
+OBJDIR    := $(ROOT)/.obj/$(APP)
+DIST      := $(ROOT)/dist/$(APP)
+OUT       := $(ROOT)/build/$(TARGET)/$(APP)
+GAME_ASSETS = $(wildcard *.iso)
 
-SRCS     = $(wildcard *.c)
-SRCS_CXX = $(wildcard *.cpp)
+OJ_VERSION ?= 0.1.0-pocket
 
-# Data files bundled into the per-target deliverable (override per core).
-MISTER_ASSETS ?= $(wildcard *.mid *.mod *.wav *.dat *.png *.bin *.cfg *.iso)
+APPINC := -I$(OJ)/src -I$(OJ)/ext/argparse -I$(OJ)/ext/miniz -I$(OJ)/ext/xmp -I$(OJ)/ext/stb
+DEFS   := -DOPENFPGA -DOJ_SDL2 -DPORTABLE -DSDL_MAIN_HANDLED -DOJ_VERSION='"$(OJ_VERSION)"' \
+          -DMINIZ_NO_ARCHIVE_APIS -DLIBXMP_STATIC -DLIBXMP_CORE_PLAYER -DLIBXMP_CORE_DISABLE_IT -DHAVE_POWF \
+          -DOF_SDL_NO_CONTROLLER_EVENTS
 
-# Declare default target before sdk.mk's rules
+ifeq ($(STLTEST),1)
+SRCS_CXX := $(CURDIR)/stltest/main.cpp
+SRCS_C   := $(PLAT)/of_libc_compat.c $(SDK)/of_init.c
+else
+SRCS_CXX := $(shell find $(OJ)/src -name '*.cpp' -not -path '*/jj2/*' | sort)
+SRCS_C   := $(OJ)/ext/argparse/argparse.c $(OJ)/ext/miniz/miniz.c $(OJ)/ext/stb/stb_rect_pack.c \
+            $(shell find $(OJ)/ext/xmp/src -name '*.c' | sort) \
+            $(PLAT)/of_libc_compat.c $(SDK)/of_init.c $(SDK)/of_sdl2.c
+endif
+
+# Speed-critical TUs at -O3: xmp mixer + the blitters.
+HOT_SRCS := $(OJ)/ext/xmp/src/mixer.c $(OJ)/ext/xmp/src/mix_all.c $(OJ)/ext/xmp/src/virtual.c \
+            $(OJ)/ext/xmp/src/player.c $(OJ)/src/io/gfx/video.cpp $(OJ)/src/io/gfx/sprite.cpp \
+            $(OJ)/src/io/gfx/anim.cpp $(OJ)/src/io/gfx/font.cpp
+
 .DEFAULT_GOAL := all
+include $(CURDIR)/cxx.mk
 
-include $(SDK_DIR)/sdk.mk
+all: app.elf release
 
-$(CRT_DIR)/start.o: $(CRT_DIR)/start.S
-	$(AS) $(ASFLAGS) -c -o $@ $<
+release: app.elf
+	@$(SDK)/platforms/$(TARGET)/image.sh "$(APP)" "app.elf" "$(ROOT)" "$(DIST)" $(GAME_ASSETS)
 
-# Build ELF, then assemble SD card image in build/<app>/
-all: $(OBJ_DIR)/app.elf release
-	@$(SIZE) $<
-
-# Assemble the per-target deliverable.  Each platform owns its layout
-# (pocket = APF tree, mister = disk image); the rule names no target —
-# adding a target = add platforms/<target>/image.sh.
-release: $(OBJ_DIR)/app.elf
-	@$(SDK_DIR)/platforms/$(TARGET)/image.sh "$(APP)" "$(OBJ_DIR)/app.elf" "$(ROOT)" "$(DIST)" $(MISTER_ASSETS)
-
-debug: all
-	@$(ROOT)/scripts/debug.sh $$(ls -d $(OUT)/Assets/*/common 2>/dev/null)/$(APP).elf
-
-# Deploy to the device.  MISTER_IP rides the environment so the same
-# invocation serves every platform's copy.sh (pocket ignores it and
-# auto-detects the SD card; mister uses it as the network host).
 copy: all
-	@MISTER_IP="$(MISTER_IP)" $(SDK_DIR)/platforms/$(TARGET)/copy.sh "$(APP)" "$(OBJ_DIR)/app.elf"
+	@MISTER_IP="$(MISTER_IP)" $(SDK)/platforms/$(TARGET)/copy.sh "$(APP)" "app.elf"
 
 package: all
 	@$(ROOT)/scripts/package.sh $(APP)
 
-test: app_pc
+# ── Desktop build: real SDL2 from Homebrew, same sources, same platform file ──
+PC_CXX  ?= c++
+PC_CC   ?= cc
+PC_OBJDIR := $(ROOT)/.obj/$(APP)-pc
+PC_SDL_CFLAGS := $(shell sdl2-config --cflags)
+PC_SDL_LIBS   := $(shell sdl2-config --libs)
+PC_DEFS := -DOF_PC -DOPENFPGA -DOJ_SDL2 -DPORTABLE -DSDL_MAIN_HANDLED -DOJ_VERSION='"$(OJ_VERSION)-pc"' \
+           -DMINIZ_NO_ARCHIVE_APIS -DLIBXMP_STATIC -DLIBXMP_CORE_PLAYER -DLIBXMP_CORE_DISABLE_IT -DHAVE_POWF
+PC_SRCS_CXX := $(shell find $(OJ)/src -name '*.cpp' -not -path '*/jj2/*' | sort)
+PC_SRCS_C   := $(OJ)/ext/argparse/argparse.c $(OJ)/ext/miniz/miniz.c $(OJ)/ext/stb/stb_rect_pack.c \
+               $(shell find $(OJ)/ext/xmp/src -name '*.c' | sort)
+pcobj = $(PC_OBJDIR)/$(patsubst $(ROOT)/%,%,$(1)).o
+PC_OBJS := $(foreach s,$(PC_SRCS_CXX) $(PC_SRCS_C),$(call pcobj,$(s)))
 
-clean: sdk-clean
-	rm -rf $(ROOT)/build/pocket/$(APP) $(ROOT)/build/mister/$(APP)
+$(PC_OBJDIR)/%.o: $(ROOT)/% $(CURDIR)/Makefile
+	@mkdir -p $(dir $@)
+	@case "$<" in \
+	  *.cpp) echo "PC CXX $*"; $(PC_CXX) -std=gnu++17 -O2 -g $(PC_DEFS) $(APPINC) $(PC_SDL_CFLAGS) -c -o $@ "$<" ;; \
+	  *.c)   echo "PC CC  $*"; $(PC_CC)  -std=gnu11  -O2 -g $(PC_DEFS) $(APPINC) $(PC_SDL_CFLAGS) -c -o $@ "$<" ;; \
+	esac
 
-.PHONY: all release debug copy package test clean
+openjazz_pc: $(PC_OBJS)
+	$(PC_CXX) -o $@ $(PC_OBJS) $(PC_SDL_LIBS) -lm
+
+test: openjazz_pc
+
+clean:
+	rm -rf $(OBJDIR) $(PC_OBJDIR) app.elf openjazz_pc $(ROOT)/build/pocket/$(APP)
+
+.PHONY: all release copy package test clean
