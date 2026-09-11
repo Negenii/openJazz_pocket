@@ -81,7 +81,7 @@ class Canvas:
             cx += (GLYPH_W + 1) * scale
         return cx - x
 
-    def to_bin(self, transpose=False):
+    def to_bin(self, transpose=False, rotate_ccw=False):
         """Two bytes per pixel, brightness first, low byte zero.
 
         The core icon is stored as it reads: 36 rows of 36 pixels. The
@@ -104,6 +104,13 @@ class Canvas:
             src = rows
             rows = [[src[y][self.w - 1 - x] for y in range(self.h)]
                     for x in range(self.w)]
+        if rotate_ccw:
+            # The icon is stored rotated too: written straight through it
+            # appears a quarter turn clockwise on the device, so store it
+            # turned the other way.
+            src = rows
+            h, w = len(src), len(src[0])
+            rows = [[src[x][w - 1 - y] for x in range(h)] for y in range(w)]
         out = bytearray()
         for row in rows:
             for v in row:
@@ -336,7 +343,7 @@ def main():
         os.makedirs(a.core_dir, exist_ok=True)
         os.makedirs(os.path.dirname(a.platform_image), exist_ok=True)
         with open(icon_path, "wb") as f:
-            f.write(icon.to_bin())
+            f.write(icon.to_bin(rotate_ccw=True))
         with open(a.platform_image, "wb") as f:
             f.write(banner.to_bin(transpose=True))
         print("wrote %s (%d bytes)" % (icon_path, ICON_W * ICON_H * 2))
