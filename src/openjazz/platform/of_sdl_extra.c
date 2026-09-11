@@ -258,3 +258,82 @@ int of_sdl_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture,
 	}
 	return SDL_RenderCopy(renderer, texture, srcrect, dstrect);
 }
+
+/* ---- Bounded audio latency -------------------------------------------
+ * OpenJazz opens audio at 24 kHz (SOUND_FREQ, src/openjazz/src/platforms/
+ * openfpga.h) with samples=1024 (SOUND_SAMPLES). We hand the shim's real
+ * SDL_OpenAudioDevice a callback-less spec so its own audio_pump() (which
+ * bails out whenever __sdl_audio_cb is null) never runs, keep the real
+ * callback here, and drive it ourselves from of_sdl_Delay/of_sdl_RenderPresent
+ * -- the same two call sites the shim's pump used for its own topping-up.
+ * SDL_GetQueuedAudioSize/SDL_QueueAudio (both real shim calls once this file
+ * is done macro-redirecting) read and write the very same ring, so this is
+ * just a smaller, self-imposed fill target instead of "always full".
+ */
+static SDL_AudioCallback g_audio_cb;
+static void             *g_audio_userdata;
+static SDL_AudioDeviceID g_audio_dev;
+static int               g_audio_paused = 1;
+static int               g_audio_target_pairs;   /* queue depth we maintain */
+
+/* Top the ring up to g_audio_target_pairs stereo pairs, no further. */
+static void of_sdl_audio_pump(void) {
+	static int16_t buf[2048];            /* 1024 stereo pairs */
+	if (!g_audio_cb || g_audio_paused || !g_audio_dev) return;
+	for (int guard = 0; guard < 8; guard++) {
+		int queued = (int)(SDL_GetQueuedAudioSize(g_audio_dev) / 4);
+		int want = g_audio_target_pairs - queued;
+		if (want <= 0) break;
+		if (want > 1024) want = 1024;
+		g_audio_cb(g_audio_userdata, (Uint8 *)buf, want * 4);
+		SDL_QueueAudio(g_audio_dev, buf, (Uint32)want * 4);
+	}
+}
+
+SDL_AudioDeviceID of_sdl_OpenAudioDevice(const char *device, int iscapture,
+                           const SDL_AudioSpec *desired, SDL_AudioSpec *obtained,
+                           int allowed_changes) {
+	if (!desired) return 0;
+	/* Hand the shim a callback-less spec so its own pump never runs; keep
+	 * the callback here and drive it from of_sdl_audio_pump(). */
+	SDL_AudioSpec quiet = *desired;
+	quiet.callback = NULL;
+	quiet.userdata = NULL;
+	SDL_AudioSpec got;
+	SDL_AudioDeviceID dev = SDL_OpenAudioDevice(device, iscapture, &quiet,
+	                                            obtained ? obtained : &got,
+	                                            allowed_changes);
+	if (!dev) return 0;
+	const SDL_AudioSpec *result = obtained ? obtained : &got;
+	g_audio_cb = desired->callback;
+	g_audio_userdata = desired->userdata;
+	g_audio_dev = dev;
+	g_audio_paused = 1;
+	/* Four of the game's own buffers: 4 x 1024 pairs at 24 kHz is ~170 ms,
+	 * enough to ride out a long frame, short enough to feel immediate. */
+	g_audio_target_pairs = (result->samples > 0 ? result->samples : 1024) * 4;
+	return dev;
+}
+
+void of_sdl_PauseAudioDevice(SDL_AudioDeviceID dev, int pause_on) {
+	g_audio_paused = pause_on ? 1 : 0;
+	SDL_PauseAudioDevice(dev, pause_on);
+	if (!g_audio_paused) of_sdl_audio_pump();
+}
+
+void of_sdl_CloseAudioDevice(SDL_AudioDeviceID dev) {
+	g_audio_cb = NULL; g_audio_userdata = NULL;
+	g_audio_dev = 0; g_audio_paused = 1;
+	SDL_CloseAudioDevice(dev);
+}
+
+void of_sdl_Delay(Uint32 ms) {
+	of_sdl_audio_pump();
+	SDL_Delay(ms);
+	of_sdl_audio_pump();
+}
+
+void of_sdl_RenderPresent(SDL_Renderer *renderer) {
+	of_sdl_audio_pump();
+	SDL_RenderPresent(renderer);
+}

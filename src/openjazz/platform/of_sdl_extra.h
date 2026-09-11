@@ -151,6 +151,28 @@ int of_sdl_SetRenderTarget(SDL_Renderer *renderer, SDL_Texture *texture);
 #define SDL_SetRenderTarget of_sdl_SetRenderTarget
 #endif
 
+/* ---- Bounded audio latency (io/sound.cpp) -----------------------------
+ * The Pocket's audio ring holds 131072 stereo pairs and the shim's pump
+ * fills it to the brim, which at OpenJazz's 24 kHz is 5.5 seconds of
+ * queued audio -- every sound effect arrives seconds after the action.
+ * We take the callback ourselves (the shim's pump stays dormant without
+ * one) and top the queue up to a few buffers' worth instead.
+ */
+SDL_AudioDeviceID of_sdl_OpenAudioDevice(const char *device, int iscapture,
+                            const SDL_AudioSpec *desired, SDL_AudioSpec *obtained,
+                            int allowed_changes);
+void of_sdl_PauseAudioDevice(SDL_AudioDeviceID dev, int pause_on);
+void of_sdl_CloseAudioDevice(SDL_AudioDeviceID dev);
+void of_sdl_Delay(Uint32 ms);
+void of_sdl_RenderPresent(SDL_Renderer *renderer);
+#ifndef OF_SDL_EXTRA_IMPL
+#define SDL_OpenAudioDevice  of_sdl_OpenAudioDevice
+#define SDL_PauseAudioDevice of_sdl_PauseAudioDevice
+#define SDL_CloseAudioDevice of_sdl_CloseAudioDevice
+#define SDL_Delay            of_sdl_Delay
+#define SDL_RenderPresent    of_sdl_RenderPresent
+#endif
+
 #ifdef __cplusplus
 }
 #endif
