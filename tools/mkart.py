@@ -288,6 +288,13 @@ def main():
     ap.add_argument("--platform-image", default="dist/openjazz/Platforms/_images/openjazz.bin")
     ap.add_argument("--export-icon-png", metavar="PATH",
                     help="write the generated icon as an editable PNG")
+    ap.add_argument("--export-banner-png", metavar="PATH",
+                    help="write the generated banner as an editable PNG "
+                         "(521x165, the way it looks on screen)")
+    ap.add_argument("--import-banner-png", metavar="PATH",
+                    help="build the platform image from a PNG (521x165, or an "
+                         "exact integer multiple); the rotation the format "
+                         "wants is applied on the way out")
     ap.add_argument("--import-icon-png", metavar="PATH",
                     help="build icon.bin from a PNG (36x36, or an exact "
                          "integer multiple) instead of generating it")
@@ -298,6 +305,15 @@ def main():
     if a.export_icon_png:
         png_write(a.export_icon_png, icon.px)
         print("wrote %s (%dx%d, 8-bit greyscale)" % (a.export_icon_png, ICON_W, ICON_H))
+
+    if a.export_banner_png:
+        png_write(a.export_banner_png, banner.px)
+        print("wrote %s (%dx%d, 8-bit greyscale)"
+              % (a.export_banner_png, BANNER_W, BANNER_H))
+
+    if a.import_banner_png:
+        banner.px = downscale(png_read_grey(a.import_banner_png), BANNER_W, BANNER_H)
+        print("banner taken from %s" % a.import_banner_png)
 
     if a.import_icon_png:
         icon.px = downscale(png_read_grey(a.import_icon_png), ICON_W, ICON_H)
