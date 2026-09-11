@@ -1,19 +1,9 @@
-*.o
-!src/sdk/musl/lib/crt1.o
-!src/sdk/musl/lib/crti.o
-!src/sdk/musl/lib/crtn.o
-*.elf
-._*
-app_pc
-save_*.bin
-build/
 .obj/
+build/
 releases/
-src/tools/phdp/phdp
-src/tools/phdp/phdpd
-
-# mister platform: compiled host tool (rebuilt on demand from mkimage.c)
-src/sdk/platforms/mister/.mkimage
+src/openjazz/*.iso
+jazz
+src/openjazz/jazz
 art/
 .DS_Store
 **/.DS_Store
