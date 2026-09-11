@@ -1,0 +1,66 @@
+version = 1
+
+# ---------------------------------------------------------------------------
+# Bulk licensing for files without an inline SPDX header (third-party trees,
+# binaries, generated artifacts, packaged distribution, data/config).  Source
+# files authored by the project carry their own Apache-2.0 SPDX header and are
+# not listed here.  See LICENSES/ for every referenced license text.
+# ---------------------------------------------------------------------------
+
+# ===== Project data / docs / build outputs / packaged distribution =========
+[[annotations]]
+path = [
+    "runtime/**",
+    "dist/**",
+    "build/**",
+    "**/*.o",
+    "**/*.a",
+    "**/*.json",
+    "**/*.ini",
+    "**/*.cfg",
+    "**/*.bin",
+    "**/*.sof",
+    "**/*.rbf_r",
+    "**/*.iso",
+    "**/*.md",
+    "src/apps/fbdemo/ofos.png",
+    "src/apps/wavdemo/audio.wav",
+    "NOTICE",
+]
+SPDX-FileCopyrightText = "(c) 2026, ThinkElastic <Think@Elastic.com>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ===== Repository dotfiles ==================================================
+[[annotations]]
+path = ["**/.gitignore", ".gitmodules"]
+precedence = "override"
+SPDX-FileCopyrightText = "(c) 2026, ThinkElastic <Think@Elastic.com>"
+SPDX-License-Identifier = "CC0-1.0"
+
+# ===== musl libc (third-party) =============================================
+[[annotations]]
+path = "src/sdk/musl/**"
+precedence = "override"
+SPDX-FileCopyrightText = "Copyright (c) the musl contributors"
+SPDX-License-Identifier = "MIT"
+
+# ===== Third-party media — these MUST come last so they override the broad
+#       project rule above for any copies under runtime/ or dist/ ===========
+[[annotations]]
+path = "**/*.ofsf"
+precedence = "override"
+SPDX-FileCopyrightText = "SC-55 SoundFont from github.com/GuihongWang/SC55Soundfont (converter by Kitrinx & NewRisingSun); underlying samples (c) Roland Corporation"
+SPDX-License-Identifier = "LicenseRef-Proprietary-SampleData"
+
+[[annotations]]
+path = ["**/*.mod", "**/*.mid"]
+precedence = "override"
+SPDX-FileCopyrightText = "Third-party tracker modules / MIDI songs; rights belong to their respective composers"
+SPDX-License-Identifier = "LicenseRef-ThirdParty-Media"
+
+# ===== FatFs (vendored, pristine — ChaN R0.15a) =============================
+[[annotations]]
+path = "src/sdk/platforms/mister/fatfs/**"
+precedence = "override"
+SPDX-FileCopyrightText = "Copyright (C) 2025, ChaN"
+SPDX-License-Identifier = "BSD-1-Clause"

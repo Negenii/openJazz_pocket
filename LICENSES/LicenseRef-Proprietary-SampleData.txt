@@ -1,0 +1,19 @@
+LicenseRef-Proprietary-SampleData
+
+This identifier marks bundled audio sample data that is DERIVED FROM
+THIRD-PARTY SOUND ROMS and is NOT covered by the project's Apache-2.0 license.
+
+assets/banks/sc55.ofsf is converted (via tools/sf2_to_ofsf) from the SC-55
+SoundFont published at:
+
+    https://github.com/GuihongWang/SC55Soundfont
+
+That repository carries NO license, and its SoundFont was produced with
+Kitrinx & NewRisingSun's SC-55-to-SoundFont converter from the Roland SC-55's
+internal wavetable. The intellectual property in the underlying samples
+belongs to Roland Corporation and/or the respective authors.
+
+It is included here for development/testing convenience only. Before
+redistributing built artifacts that embed this data, you are responsible for
+confirming you have the necessary rights, or for replacing it with a bank you
+are licensed to distribute (see tools/sf2_to_ofsf and assets/banks/).

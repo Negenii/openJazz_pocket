@@ -1,0 +1,19 @@
+*.o
+!src/sdk/musl/lib/crt1.o
+!src/sdk/musl/lib/crti.o
+!src/sdk/musl/lib/crtn.o
+*.elf
+._*
+app_pc
+save_*.bin
+build/
+.obj/
+releases/
+src/tools/phdp/phdp
+src/tools/phdp/phdpd
+
+# mister platform: compiled host tool (rebuilt on demand from mkimage.c)
+src/sdk/platforms/mister/.mkimage
+art/
+.DS_Store
+**/.DS_Store

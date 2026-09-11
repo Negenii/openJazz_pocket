@@ -1,0 +1,44 @@
+openfpgaOS SDK
+Copyright (c) 2026 ThinkElastic <Think@Elastic.com>
+
+This product includes software developed by ThinkElastic, licensed under the
+Apache License, Version 2.0 (see the LICENSE file). Source files authored by
+the project carry an SPDX Apache-2.0 license tag in their header; other files
+are covered via REUSE.toml.
+
+================================================================================
+Third-party components
+================================================================================
+
+The list below is informational; the authoritative annotation is in REUSE.toml
+and the LICENSES/ directory.
+
+* src/sdk/musl/ (and any bundled copies)
+    musl libc — Copyright (c) the musl contributors — MIT License.
+
+* runtime/bank.ofsf and any *.ofsf SoundFont banks
+    SC-55 SoundFont converted (via tools/sf2_to_ofsf) from
+    github.com/GuihongWang/SC55Soundfont (no upstream license), itself derived
+    from the Roland SC-55 wavetable via Kitrinx & NewRisingSun's converter.
+    Underlying samples (c) Roland Corporation. See
+    LICENSES/LicenseRef-Proprietary-SampleData.txt.
+
+* src/apps/moddemo/*.mod
+    Third-party tracker music modules of unverified provenance. See
+    LICENSES/LicenseRef-ThirdParty-Media.txt.
+
+* runtime/ap_core.sof, runtime/bitstream.rbf_r, runtime/os.bin,
+  runtime/loader.bin (and packaged copies under dist/)
+    Prebuilt openfpgaOS FPGA bitstream and OS binaries. The synthesized
+    bitstream EMBEDS third-party RTL from the main openfpgaOS repository —
+    the Analogue Pocket Framework (proprietary), Analogizer / MiSTer-derived
+    video cores (GPL-2.0), and Intel/Altera megafunction IP. Consult the main
+    openfpgaOS repository's NOTICE before redistributing these binaries.
+
+================================================================================
+NOTE
+================================================================================
+
+The SC-55 sample bank and the .mod modules are third-party media and remain
+under their owners' rights even though they are attributed here. Confirm
+distribution rights or replace them before shipping built artifacts.

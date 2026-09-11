@@ -1,0 +1,287 @@
+# openfpgaOS SDK — MiSTer packaging & deployment
+
+How a game is built into a per-game bundle, published, installed, and booted on
+MiSTer. This is the **per-game / update-safe** model — the only supported
+MiSTer distribution shape. See [`README.md`](README.md) for the artifact list
+and the firmware slot contract.
+
+## The idea
+
+- The **core is game-agnostic** and installed **once** (`_Computer/OpenfpgaOS.rbf`
+  + `games/OpenfpgaOS/boot.rom`). It knows nothing about which games exist.
+- Each game ships a **self-contained bundle** that drops into
+  `games/OpenfpgaOS/`.
+- On-card state is split across **three volumes with independent update
+  lifecycles**, so an engine update can never overwrite a player's saves or wads.
+
+### The three volumes
+
+| Volume | `.mgl` mount | Path on card | Holds | Lifecycle |
+|---|---|---|---|---|
+| **S0 `boot.vhd`** | `type=s index=0` (games-relative) | `games/OpenfpgaOS/<Game>/boot.vhd` | read-only shell: `/<Game>/common` = `bank.ofsf` + injected IWADs. **No engine ELF** (`--no-elf`). | **materialized by setup.sh** from the shipped template — never shipped raw |
+| **S1 `<Game>.vhd`** | `type=s index=1` (**absolute**) | `saves/OpenfpgaOS/<Game>.vhd` | writable: per-instance `cfg`s + `slot_0..9.sav`, each a 256 KB contiguous preallocated slot | **seeded once, never overwritten** |
+| **loose `<elf>`** | `type=f index=2` (F-load) | `games/OpenfpgaOS/<Game>/<elf>` (e.g. `doom.elf`) | the engine; DMA'd to ELF staging → firmware serves it as slot 3 | **swap this one file to update the engine** |
+
+S1 lives under the Downloader-**reserved** `saves/` tree (not `games/`), and the
+`.mgl` mounts it by **absolute** path, precisely so a Downloader re-sync or a
+manual reinstall never touches it.
+
+### The boot-shell template model
+
+The bundle/DB never ships the working `boot.vhd` — it ships **`boot.vhd.gz`**,
+a gzipped pristine shell (a mostly-zero FAT image compresses to a few MB, so
+shell sizes can be generous — see each game's `GAME_BOOT_MB`).  `setup.sh`
+gunzips it into the working `boot.vhd` whenever that image is missing **or the
+template changed** (`.boot.vhd.src` records the template md5 the image was
+built from), then re-injects the user's wads from `wads/`.
+
+Why: a Downloader-managed working image can only fail.  `overwrite:true`
+clobbers the user's injected wads on every update; `overwrite:false` (the old
+scheme) protects them but means a shell fix **never reaches existing
+installs**.  Splitting template (Downloader-owned, updates freely) from
+working image (user-owned, rebuilt locally, lossless because wads live in
+`wads/` and saves in S1) fixes both.  mkdb marks any straggler `boot*.vhd` /
+`*.saves.vhd` install-once as a safety net.
+
+## 1. Host packaging — `make package TARGET=mister`
+
+`package` depends on `game-dist`, which depends on the built `app.elf`. Two
+sub-phases run in order.
+
+**game-dist** — build the artifacts into `build/mister/<game>/`:
+
+```
+mkgame.sh --no-elf --saves-out <Game>.saves.vhd …  →  boot.vhd (S0) + <Game>.saves.vhd (S1)
+mkmgl.sh <Game> <inis_dir> <stage>                 →  one 4-line <Inst>.mgl per instance ini
+cp app.elf         →  <Game>/<elf>                 (loose engine)
+cp <inis>/*.ini    →  <Game>/                      (loose, F-loaded per instance)
+setup.sh (GAME baked in)  →  <Game>/setup.sh       (device-side installer, shipped in the bundle)
+cp external_files.csv     →  <Game>/               (reference copy; the real consumer is mkdb.py)
+```
+
+- `mkgame.sh` drives **`mkimage.c`** — a host build of the *same FatFs* the
+  firmware mounts, so the on-disk format is exact. `--no-default-nv` (passed to
+  **both** images) strips mkimage's legacy root slots, so S0 gets **zero** nv
+  slots (pure read-only) and S1 gets **only** the per-instance
+  `nv=/<Game>/<Inst>/…` slots. Every nv slot is `f_expand`'d to **256 KB
+  contiguous** and zero-filled — the firmware's power-cut-safe save contract
+  refuses any save file that isn't present at full size, and never rewrites FAT
+  metadata mid-save, which is why contiguous prealloc is mandatory.
+- Instances are enumerated from the `*.ini` files (each with `[os]
+  GAME`/`INSTANCE`/`ELF`), validated by `validate-ini.sh`. There is no
+  `INSTANCES` variable.
+- Default profile ships boot.vhd with **no IWADs** (small, redistributable).
+  `--with-wads` bakes them in for a self-contained dev/test image.
+
+**package** — turn the staged tree into deliverables:
+
+```
+scripts/package.sh <game>   →  releases/mister/<game>-v<ver>.zip   (the whole staged tree)
+mkdb.py …                   →  releases/mister/<game>.json.zip      (Downloader custom DB)
+                            +  releases/mister/<game>.downloader.ini (the [db_id] snippet)
+```
+
+`mkdb.py` walks the staged tree computing each local file's real MD5 + size,
+folds in `external_files.csv` (freeware wads with maintainer-pinned
+url/size/md5), and writes a **genuine ZIP holding one `<game>.json`** (not gzip,
+despite the `.json.zip` name; byte-reproducible via a fixed 1980 Zip timestamp).
+`boot.vhd` (and any `--install-once` glob) is marked `overwrite:false` so a
+re-sync can't clobber injected wads; everything else defaults to
+`overwrite:true` so an engine/asset update lands.
+
+### Artifacts produced
+
+| Artifact | Where | Role |
+|---|---|---|
+| `<game>-v<ver>.zip` | `releases/mister/` | the per-game bundle a user unzips into `games/OpenfpgaOS/` |
+| `<game>.json.zip` | `releases/mister/` | the **only** file the MiSTer Downloader consumes |
+| `<game>.downloader.ini` | `releases/mister/` | the `[db_id]` + `db_url` snippet the user pastes into `downloader.ini` |
+
+## 2. Publishing
+
+`make release CORE=<game> TARGET=mister` attaches everything to a GitHub
+release: the bundle zip, `<game>.json.zip`, the ini snippet, and every file the
+DB references as a **flat asset**.
+
+Hosting is `https://github.com/openfpgaOS/<Repo>/releases/latest/download/`:
+
+- **`releases/latest/download/` is ONE pointer per repository** — with several
+  release streams in one repo (doom/heretic/hexen) it resolves to whichever
+  core released last and serves the wrong stream's assets (user-reported,
+  2026-08-13).  The scheme is therefore: asset URLs inside the DB pin to the
+  release's own immutable tag (`releases/download/<core>-mister-v<ver>/`),
+  and the tiny `<core>.json.zip` is **committed to the repo** and served via
+  `raw.githubusercontent.com/<org>/<repo>/main/releases/mister/` — a stable
+  per-core `db_url` that never goes stale and no other stream can hijack.
+  Only single-release-stream repos may safely use `latest` for the db_url.
+- **DB and release assets are one atomic set.**  The DB pins md5s of the
+  exact staging it was computed from, and freshly built FAT images are never
+  byte-identical to a previous build — so NEVER publish a regenerated
+  json.zip without clobber-uploading that same staging's bundle files to the
+  release (field failure 2026-08-13: regenerated DBs pinned a changed
+  setup.sh while the releases served the old one; every sync failed hash
+  validation at the user's end).
+- Release assets have a 2 GB/file limit. `raw.githubusercontent` refuses
+  anything over 100 MB, and these bundles ship multi-hundred-MB `.vhd` images —
+  which is why the DB is generated `--url-mode flat` (every entry gets an
+  explicit `url = <base>/<basename>`) instead of `base_files_url + path`.
+- Flat hosting requires unique basenames within a bundle. They are unique
+  today; a collision would silently serve the wrong file. `release.sh` now
+  refuses to publish when it finds one, and equally when the DB references a
+  file the release does not attach — both used to fail silently on the user's
+  machine long after we shipped.
+- **`"path": "pext"` on everything under `games/`.** Without it the Downloader
+  treats the path as SD-relative and installs to the SD card even when the user
+  keeps their games on USB or a CIFS/NAS mount. `mkdb.py` marks files AND
+  folders under `games/` automatically (`PEXT_ROOTS`); the bare `games` folder
+  and everything in `_Computer/` stay SD-relative, which is what the stock
+  MiSTer databases do — cores live on SD, payload is redirectable.
+- **Do not set `reboot: true` on cores or boot ROMs.** It is for `linux/` and
+  MiSTer-binary updates. A new `.rbf` or `boot.rom` just needs the core
+  re-loaded from the menu, and forcing a reboot after a routine `update_all`
+  is a bug users notice (reported 2026-08-11).
+
+`MISTER_DB_ID` (e.g. `openfpgaOS/openfpgaos-doom`) is the Downloader database
+key — **never change it once published**.
+
+
+## Adding your own files (end users)
+
+Two ways, depending on whether you want it automated.
+
+**1. Just copy them in.** Put the files in `games/OpenfpgaOS/<Game>/wads/` on
+the SD (or wherever your games live) and run that game's `setup.sh`. It injects
+them into the read-only `boot.vhd` and republishes the launchers. No database
+involved. This is the supported path and what `INSTALL.txt` describes.
+
+**2. Your own Downloader database**, if you want the files fetched automatically
+— useful across several MiSTers, or to pin exact versions. The same two tools
+the project uses work standalone; nothing needs to be added to the official DB.
+
+```sh
+mkdir -p ~/mydb/empty                      # mkdb needs a staging dir; empty is fine
+cat > ~/mydb/my_files.csv <<'CSV'
+sd_path,url,size,md5,tags
+games/OpenfpgaOS/Quake/wads/pak0.pak,TODO_URL,TODO_SIZE,TODO_MD5,quake personal
+CSV
+
+# Fill size+md5 from an archive.org item (optional -- or write them by hand,
+# `md5sum yourfile` if you are hosting it yourself):
+ia_pin.py --csv ~/mydb/my_files.csv --subdir quake --write
+
+mkdb.py --staging ~/mydb/empty --sd-prefix "" \
+        --db-id "yourname/my-openfpgaos-extras" \
+        --external ~/mydb/my_files.csv --url-mode base \
+        --db-url "https://<where you host it>/my-extras.json.zip" \
+        --output ~/mydb/my-extras.json.zip --ini-out ~/mydb/my.ini
+```
+
+Host the `.json.zip` anywhere the MiSTer can reach it over HTTPS (a GitHub
+release or gist works) and append the generated snippet to
+`/media/fat/downloader.ini`:
+
+```ini
+[yourname/my-openfpgaos-extras]
+db_url = https://<where you host it>/my-extras.json.zip
+```
+
+`update_all` then treats it as just another database. Notes:
+
+- Pick a `db_id` nobody else uses and never change it once published — the
+  Downloader tracks installed files per `db_id`.
+- Entries under `games/` are marked `"path": "pext"` automatically, so they
+  follow your external-storage setting instead of being forced onto the SD.
+- `url` must resolve to the **bare file**, not a `.zip` containing it — the
+  Downloader does not unpack archives.
+- `size` and `md5` must be exact or the download is rejected. That is the
+  point: it is also how you know you got the right version of a file.
+- Only add what you have the right to distribute to whoever can reach that
+  URL. A private DB of files you own is your business; a public one is
+  publishing.
+
+## 3. Installing on the device
+
+**Once, for both channels:** install the game-agnostic core from the **openfpgaOS
+core release** — `make package/release TARGET=mister` in the openfpgaOS repo emits
+`openfpgaos-core-v<ver>.zip` (`OpenfpgaOS.rbf → /media/fat/_Computer/`, `boot.rom →
+games/OpenfpgaOS/`) plus a Downloader DB. Game repos no longer vendor the core
+(`make sdk` stops at `os.bin`).
+
+**Manual:**
+
+1. Unzip the bundle into `games/OpenfpgaOS/`.
+2. Copy the commercial IWADs you own into `<Game>/wads/`.
+3. Run `setup.sh` (Scripts menu, or `bash <Game>/setup.sh <Game>`): it **seeds
+   `saves/OpenfpgaOS/<Game>.vhd` only if absent** (existence check → your saves
+   are safe on re-run), then loop-mounts boot.vhd rw and copies each wad into
+   `/<Game>/common` (idempotent — skips same-size files).
+4. Pick a `.mgl` from the menu.
+
+**Downloader:** paste the `[db_id] db_url=…` snippet into
+`/media/fat/downloader.ini` and sync. The Downloader fetches the freeware wads
+(from their own absolute URLs in `external_files.csv`) and the rest of the tree
+straight to the SD card.
+
+## 4. Runtime — the 4-line `.mgl`
+
+```
+<rbf>_Computer/OpenfpgaOS</rbf>
+delay 1  s  idx 0  <Game>/boot.vhd                          → mount S0 (read tree)
+delay 2  s  idx 1  /media/fat/saves/OpenfpgaOS/<Game>.vhd   → mount S1 (writable saves)
+delay 3  f  idx 2  <Game>/<elf>                             → F-load engine → ELF staging (sets ELF_LOADED). NO reset.
+delay 4  f  idx 1  <Game>/<inst>.ini                        → F-load ini → triggers ini_reset (SoC reboot)
+```
+
+On the reset the OS reads the staged ini's `[os] GAME/INSTANCE`, derives
+`common_root=/<Game>/common` (reads on S0) and `instance_root=/<Game>/<Inst>`
+(writes pinned to S1), forces the app slot to 3, and reads the engine from ELF
+staging. **Order is correctness-critical:** the ELF must stage (idx 2) *before*
+the ini (idx 1) fires the reset, or the slot-3 read has nothing to load. Path
+rule (MiSTer `menu.cpp`): a path starting with `/` is verbatim, otherwise it is
+prefixed with `HomeDir()=/media/fat/games/OpenfpgaOS` — which is why boot.vhd,
+the ELF and the ini are games-relative but the S1 saves path is absolute.
+
+## Developer fast-path — `copy.sh` (not a release step)
+
+For iterating against a *live* MiSTer over ssh. **`make copy TARGET=mister`**
+(and `make copy-app`) map to the `game` mode — the update-safe engine swap:
+
+| Command | Pushes |
+|---|---|
+| `copy.sh game <Game> <GameElf> <elf> [ip]` | the loose `games/OpenfpgaOS/<Game>/<GameElf>` (the F-loaded engine), written atomically — **boot.vhd (your wads) and saves are untouched**; no Main-stop / loop-mount. Reload the core to run it. |
+| `copy.sh core [ip]` | `boot.rom` (+ the rbf only if you still vendor it — see note) |
+
+Target host: positional arg > `$MISTER_IP` > `mister.local`. Core dir is
+`/media/fat/_Computer`.
+
+> The core bitstream is **no longer vendored** into game repos — `make sdk`
+> (openfpgaOS) stops at `os.bin`, and the core is installed once from the
+> **openfpgaOS core release** (§ *Installing on the device*). So `copy.sh core`
+> now pushes only `boot.rom`.
+
+## Script reference
+
+| Script | Stage | What it does |
+|---|---|---|
+| `mkgame.sh` | host | builds the S0 boot.vhd + S1 saves.vhd pair |
+| `mkimage.c` (`.mkimage`) | host | FatFs image builder; `--no-default-nv`, `--list` (verify contiguity) |
+| `mkmgl.sh` | host | emits the 4-line `.mgl` launchers (one per instance) |
+| `validate-ini.sh` | host | gate: enforces `[os] GAME/INSTANCE/ELF` in each ini |
+| `package.sh` | host | zips the staged tree + authors `INSTALL.txt` |
+| `mkdb.py` | host | generates the Downloader `<game>.json.zip` + ini snippet |
+| `setup.sh` | **device** | seeds S1 saves once + injects user wads into S0 |
+| `copy.sh` | dev | ssh/scp fast-path deploy / in-place ELF hot-swap |
+
+## Invariants & gotchas
+
+- **`_Computer/OpenfpgaOS.rbf`** — the `.mgl` `<rbf>` line hardcodes this, so the
+  core must live here or the launchers won't find it.
+- **`MISTER_DB_ID` is permanent** once published (keys `downloader.ini`).
+- **Never recreate S1 save/config files** with ordinary tools — they must stay
+  256 KB and contiguous. Use `mkimage.c` / `--list` to verify.
+- **`.json.zip` is a real ZIP** with one JSON member (not gzip).
+- **`external_files.csv` is freeware-only and host-side** — commercial IWADs are
+  never listed; the user supplies those and `setup.sh` injects them. Rows with
+  any `TODO_`/invalid field are skipped with a warning — hashes are never
+  invented.
+- **Engine update = replace the loose `<elf>`**; boot.vhd and saves are untouched.

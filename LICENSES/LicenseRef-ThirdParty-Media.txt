@@ -1,0 +1,9 @@
+LicenseRef-ThirdParty-Media
+
+Third-party media bundled for demonstration purposes only. NOT covered by the
+project's Apache-2.0 license, and of unverified provenance.
+
+src/apps/moddemo/*.mod are tracker music modules (e.g. "popcorn", "spacer")
+authored by third parties from the tracker / demoscene community. Rights belong
+to their respective composers. Remove or replace these before redistributing
+built artifacts unless you have confirmed you hold the necessary rights.
