@@ -407,9 +407,12 @@ int of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst
 	OF_PERF_COUNT_BLIT(src, srcrect, dst, dstrect);
 
 	const Uint8 *map = palette_map(src, dst);
-	if (!map) return SDL_UpperBlit(src, srcrect, dst, dstrect);
 
-	/* Same clipping rules as the shim's SDL_UpperBlit. */
+	/* Same clipping rules as the shim's SDL_UpperBlit. Shared by the
+	 * palette-remap loop below and the opaque-run copy in the !map case;
+	 * computing it here costs nothing when neither owns the blit and we
+	 * fall through to the real SDL_UpperBlit, since that call recomputes
+	 * the identical clip from the untouched srcrect/dstrect anyway. */
 	SDL_Rect sr;
 	if (srcrect) sr = *srcrect; else { sr.x = 0; sr.y = 0; sr.w = src->w; sr.h = src->h; }
 	int dx = dstrect ? dstrect->x : 0, dy = dstrect ? dstrect->y : 0;
@@ -422,6 +425,47 @@ int of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst
 	if (dy < cl.y) { int d = cl.y - dy; sr.y += d; sr.h -= d; dy = cl.y; }
 	if (dx + sr.w > cl.x + cl.w) sr.w = cl.x + cl.w - dx;
 	if (dy + sr.h > cl.y + cl.h) sr.h = cl.y + cl.h - dy;
+
+	if (!map) {
+		/* No index remapping needed. If both surfaces are 1 byte/pixel and
+		 * the source has a colorkey, this is exactly the shim's per-pixel
+		 * colorkey path (src/sdk/of_sdl2.c) -- take over that copy here
+		 * instead of falling through to it, so we can skip runs instead of
+		 * testing every pixel. Anything else (different bpp, no colorkey,
+		 * mixed formats) keeps falling through to the real SDL_UpperBlit
+		 * exactly as before: call it with the original, untouched
+		 * srcrect/dstrect so it repeats its own clipping and any side
+		 * effects (e.g. g_render_palette tracking) unchanged. */
+		if (src->format && dst->format
+		    && src->format->BytesPerPixel == 1 && dst->format->BytesPerPixel == 1) {
+			Uint32 key = 0;
+			if (SDL_GetColorKey(src, &key) == 0) {
+				if (sr.w <= 0 || sr.h <= 0) { if (dstrect) { dstrect->w = 0; dstrect->h = 0; } return 0; }
+
+				/* Art in this game is mostly opaque with a colorkey around it, and the
+				 * shim's colorkey path tests and stores one byte at a time. Copy the
+				 * runs between key pixels instead: a fully opaque row becomes a single
+				 * memcpy, which moves words rather than bytes. */
+				Uint8 k = (Uint8)key;
+				for (int y = 0; y < sr.h; y++) {
+					const Uint8 *sp = (const Uint8 *)src->pixels + (size_t)(sr.y + y) * src->pitch + sr.x;
+					Uint8 *dp = (Uint8 *)dst->pixels + (size_t)(dy + y) * dst->pitch + dx;
+					int x = 0;
+					while (x < sr.w) {
+						while (x < sr.w && sp[x] == k) x++;          /* skip transparent */
+						if (x >= sr.w) break;
+						int start = x;
+						while (x < sr.w && sp[x] != k) x++;           /* one opaque run */
+						memcpy(dp + start, sp + start, (size_t)(x - start));
+					}
+				}
+				if (dstrect) { dstrect->w = sr.w; dstrect->h = sr.h; }
+				return 0;
+			}
+		}
+		return SDL_UpperBlit(src, srcrect, dst, dstrect);
+	}
+
 	if (sr.w <= 0 || sr.h <= 0) { if (dstrect) { dstrect->w = 0; dstrect->h = 0; } return 0; }
 
 	Uint32 key = 0; int ck = (SDL_GetColorKey(src, &key) == 0);
