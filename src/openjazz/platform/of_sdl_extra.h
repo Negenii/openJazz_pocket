@@ -63,16 +63,45 @@ extern "C" {
 #define SDL_PIXELFLAG(x) (((x) >> 28) & 0x0F)
 #define SDL_PIXELTYPE(x) (((x) >> 24) & 0x0F)
 #define SDL_ISPIXELFORMAT_FOURCC(format) ((format) && (SDL_PIXELFLAG(format) != 1))
+/* Also accept SDL_PIXELFORMAT_INDEX8: it's the shim's native window/texture
+ * format, but OpenJazz's texture-format loop (io/gfx/video.cpp) only
+ * accepts formats this macro calls "packed", so without this it would
+ * never pick INDEX8 even when SDL_GetRendererInfo (below) advertises it. */
 #define SDL_ISPIXELFORMAT_PACKED(format) \
-	(!SDL_ISPIXELFORMAT_FOURCC(format) && \
-	 (SDL_PIXELTYPE(format) == SDL_PIXELTYPE_PACKED8 || \
-	  SDL_PIXELTYPE(format) == SDL_PIXELTYPE_PACKED16 || \
-	  SDL_PIXELTYPE(format) == SDL_PIXELTYPE_PACKED32))
+	((format) == SDL_PIXELFORMAT_INDEX8 || \
+	 (!SDL_ISPIXELFORMAT_FOURCC(format) && \
+	  (SDL_PIXELTYPE(format) == SDL_PIXELTYPE_PACKED8 || \
+	   SDL_PIXELTYPE(format) == SDL_PIXELTYPE_PACKED16 || \
+	   SDL_PIXELTYPE(format) == SDL_PIXELTYPE_PACKED32)))
 #endif
 
 /* ---- Functions missing from the shim, defined in of_sdl_extra.c ------ */
 const char *SDL_GetPixelFormatName(Uint32 format);
 Uint32 SDL_MasksToPixelFormatEnum(int bpp, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask);
+
+/* ---- Indexed render path (io/gfx/video.cpp) --------------------------
+ * The shim's window surface is 8-bit indexed and only the palette of THAT
+ * surface reaches the hardware. OpenJazz's SDL2 path picks a "packed"
+ * texture format from SDL_GetRendererInfo (the shim reports none, so
+ * OpenJazz falls back to RGB888) and sets its palette on its own `screen`
+ * surface. Three redirects keep the whole path 8-bit and route the palette
+ * to the hardware:
+ *  - SDL_GetRendererInfo advertises INDEX8 as the only texture format and
+ *    switches the shim to "window palette is the render palette";
+ *  - SDL_ISPIXELFORMAT_PACKED (above) accepts INDEX8 so OpenJazz picks it;
+ *  - SDL_SetPaletteColors mirrors OpenJazz's screen palette into the window
+ *    surface palette; the screen surface is recognised by wrapping
+ *    SDL_CreateRGBSurfaceWithFormatFrom, OpenJazz's only caller of it.
+ * Sprite/font/menu palettes are untouched (they are not the screen's).
+ */
+int of_sdl_GetRendererInfo(SDL_Renderer *r, SDL_RendererInfo *info);
+int of_sdl_SetPaletteColors(SDL_Palette *palette, const SDL_Color *colors, int first, int ncolors);
+SDL_Surface *of_sdl_CreateRGBSurfaceWithFormatFrom(void *pixels, int w, int h, int depth, int pitch, Uint32 format);
+#ifndef OF_SDL_EXTRA_IMPL
+#define SDL_GetRendererInfo               of_sdl_GetRendererInfo
+#define SDL_SetPaletteColors              of_sdl_SetPaletteColors
+#define SDL_CreateRGBSurfaceWithFormatFrom of_sdl_CreateRGBSurfaceWithFormatFrom
+#endif
 
 #ifdef __cplusplus
 }
