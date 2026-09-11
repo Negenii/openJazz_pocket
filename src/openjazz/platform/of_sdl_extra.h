@@ -103,6 +103,17 @@ SDL_Surface *of_sdl_CreateRGBSurfaceWithFormatFrom(void *pixels, int w, int h, i
 #define SDL_CreateRGBSurfaceWithFormatFrom of_sdl_CreateRGBSurfaceWithFormatFrom
 #endif
 
+/* ---- Stable resolution range (io/gfx/video.cpp findResolutions) -------
+ * The shim reports the CURRENT framebuffer size as the desktop mode, so
+ * after the player picks 320x200 the menu's maximum would drop to 200 and
+ * trap them there. Report the tallest mode the core offers at this width
+ * instead, so the full range stays reachable from any starting mode.
+ */
+int of_sdl_GetDesktopDisplayMode(int displayIndex, SDL_DisplayMode *mode);
+#ifndef OF_SDL_EXTRA_IMPL
+#define SDL_GetDesktopDisplayMode of_sdl_GetDesktopDisplayMode
+#endif
+
 /* ---- Window size + palette-mapped 8-bit blits (io/gfx/video.cpp etc.) --
  * SDL_SetWindowSize: the shim only records w/h; OpenJazz creates the window
  * at 320x200 and resizes to DEFAULT_SCREEN 320x288 in Video::reset(). We
