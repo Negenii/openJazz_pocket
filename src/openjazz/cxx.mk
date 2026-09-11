@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 # cxx.mk — shared C++ toolchain rules for OpenJazz on openfpgaOS.
 # Included by src/openjazz/Makefile and src/ehspike/Makefile.
 #

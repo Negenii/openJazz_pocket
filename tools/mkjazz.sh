@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 # Build jazz.iso for the OpenJazz Pocket core from a folder with the
 # Jazz Jackrabbit 1 files (shareware or full).
 #

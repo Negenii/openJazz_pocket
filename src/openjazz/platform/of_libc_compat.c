@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 /*
  * of_libc_compat.c -- newlib -> musl glue for the toolchain's libstdc++.
  * Same role as openfpgaOS/Diablo src/diablo/platform/of_libc_compat.c.

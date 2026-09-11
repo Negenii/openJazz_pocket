@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 # Download Jazz Jackrabbit shareware 1.3 (freely distributable) and unpack
 # the game files into <dest> (default: ./jazz). Used for development and
 # for the first jazz.iso.

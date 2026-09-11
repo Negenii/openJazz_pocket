@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 """Generate the Pocket core art: Cores/<id>/icon.bin and Platforms/_images/<p>.bin.
 
 Both files are raw greyscale bitmaps, two bytes per pixel, brightness in the

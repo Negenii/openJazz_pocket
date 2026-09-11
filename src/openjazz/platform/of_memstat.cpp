@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 // Desktop-only: report peak C++ heap usage on exit, to size the Pocket's
 // 3 MB application heap. Opt-in via `make test MEMSTAT=1` (see PC_SRCS_CXX
 // in the Makefile) — never part of the cross build, which has its own

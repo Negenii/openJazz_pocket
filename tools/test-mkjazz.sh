@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 # Smoke test for tools/mkjazz.sh: build an ISO from a tiny fixture and
 # check the key file names landed in it.
 set -euo pipefail

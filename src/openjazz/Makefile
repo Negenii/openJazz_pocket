@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 # OpenJazz — openfpgaOS custom core (Analogue Pocket)
 #
 #   make                 build app.elf (in the container) + assemble build/pocket/openjazz/

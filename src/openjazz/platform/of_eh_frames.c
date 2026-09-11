@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 /*
  * of_eh_frames.c -- register .eh_frame with libgcc's unwinder.
  *

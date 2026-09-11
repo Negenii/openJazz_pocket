@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 /* of_sdl_extra.c -- stubs for SDL2 calls OpenJazz makes that the openfpgaOS
  * SDL2 shim (src/sdk/of_sdl2.c) does not implement. Never edit src/sdk/.
  * Each stub returns the "nothing happened" value (0 / NULL / SDL_FALSE)

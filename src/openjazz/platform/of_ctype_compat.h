@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 #ifndef OF_CTYPE_COMPAT_H
 #define OF_CTYPE_COMPAT_H
 /*

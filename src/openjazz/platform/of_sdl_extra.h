@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
 /* of_sdl_extra.h -- declarations/macros for the SDL2 surface OpenJazz uses
  * that the openfpgaOS SDL2 shim (src/sdk/of_sdl2.c, src/sdk/include/SDL*.h)
  * does not provide. Never edit src/sdk/; extend it here instead.
