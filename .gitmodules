@@ -1,0 +1,3 @@
+[submodule "src/openjazz/openjazz"]
+	path = src/openjazz/openjazz
+	url = https://github.com/AlisterT/openjazz.git
