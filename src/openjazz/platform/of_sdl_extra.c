@@ -58,6 +58,23 @@ Uint32 SDL_MasksToPixelFormatEnum(int bpp, Uint32 Rmask, Uint32 Gmask, Uint32 Bm
 /* OpenJazz's `screen` surface (wraps canvas->pixels); see of_sdl_extra.h. */
 static SDL_Surface *g_oj_screen;
 
+/* OpenJazz blits `screen` into an intermediate surface and hands that to
+ * SDL_UpdateTexture on the very next line (io/gfx/video.cpp flip). Both are
+ * 8-bit and the same size, so we defer that blit and let the texture update
+ * read `screen` instead. If the expected update never arrives, the deferred
+ * copy is honoured before anything else happens and the shortcut is
+ * switched off for the rest of the run. */
+static SDL_Surface *g_deferred_blit_dst;
+static int          g_defer_blit_ok = 1;
+
+/* Perform a deferred blit that was not consumed, and stop deferring. */
+static void of_sdl_flush_deferred_blit(void) {
+	SDL_Surface *pending = g_deferred_blit_dst;
+	g_deferred_blit_dst = NULL;
+	g_defer_blit_ok = 0;
+	if (pending && g_oj_screen) SDL_UpperBlit(g_oj_screen, NULL, pending, NULL);
+}
+
 int of_sdl_GetRendererInfo(SDL_Renderer *r, SDL_RendererInfo *info) {
 	int rc = SDL_GetRendererInfo(r, info);
 	if (rc == 0 && info) {
@@ -86,6 +103,8 @@ int of_sdl_SetPaletteColors(SDL_Palette *palette, const SDL_Color *colors, int f
 }
 
 void of_sdl_FreeSurface(SDL_Surface *s) {
+	if (s && (s == g_deferred_blit_dst || s == g_oj_screen))
+		of_sdl_flush_deferred_blit();
 	if (s == g_oj_screen) g_oj_screen = NULL;
 	SDL_FreeSurface(s);
 }
@@ -191,6 +210,24 @@ static const Uint8 *palette_map(const SDL_Surface *src, const SDL_Surface *dst) 
 
 int of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect) {
 	if (!src || !dst) return -1;
+
+	if (g_defer_blit_ok && !srcrect && !dstrect && src == g_oj_screen
+	    && src->format && dst->format
+	    && src->format->BytesPerPixel == 1 && dst->format->BytesPerPixel == 1
+	    && dst->w == src->w && dst->h == src->h) {
+		if (g_deferred_blit_dst) {
+			/* A previous deferral was never consumed: honour it, give up
+			 * on deferring, and let this call copy for real. */
+			of_sdl_flush_deferred_blit();
+		} else {
+			g_deferred_blit_dst = dst;
+			return 0;
+		}
+	} else if (g_deferred_blit_dst && dst == g_deferred_blit_dst) {
+		/* Someone is writing into the surface whose copy we deferred. */
+		of_sdl_flush_deferred_blit();
+	}
+
 	const Uint8 *map = palette_map(src, dst);
 	if (!map) return SDL_UpperBlit(src, srcrect, dst, dstrect);
 
@@ -257,6 +294,27 @@ int of_sdl_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture,
 		}
 	}
 	return SDL_RenderCopy(renderer, texture, srcrect, dstrect);
+}
+
+int of_sdl_RenderClear(SDL_Renderer *renderer) {
+	if (!g_render_target) return 0;          /* window: the copy overwrites it */
+	return SDL_RenderClear(renderer);
+}
+
+int of_sdl_UpdateTexture(SDL_Texture *texture, const SDL_Rect *rect,
+                         const void *pixels, int pitch) {
+	if (g_deferred_blit_dst) {
+		SDL_Surface *pending = g_deferred_blit_dst;
+		if (g_oj_screen && pixels == pending->pixels) {
+			/* The expected call: read the frame from `screen`, which the
+			 * deferred blit would only have duplicated. */
+			g_deferred_blit_dst = NULL;
+			return SDL_UpdateTexture(texture, rect, g_oj_screen->pixels,
+			                         g_oj_screen->pitch);
+		}
+		of_sdl_flush_deferred_blit();
+	}
+	return SDL_UpdateTexture(texture, rect, pixels, pitch);
 }
 
 /* ---- Bounded audio latency -------------------------------------------

@@ -151,6 +151,27 @@ int of_sdl_SetRenderTarget(SDL_Renderer *renderer, SDL_Texture *texture);
 #define SDL_SetRenderTarget of_sdl_SetRenderTarget
 #endif
 
+/* ---- Redundant clear (io/gfx/video.cpp flip) --------------------------
+ * The one SDL_RenderClear this build compiles is immediately followed by a
+ * SDL_RenderCopy that covers the whole window, so the fill is thrown away.
+ * Skipped only when drawing to the window; a render target keeps the real
+ * behaviour.
+ */
+int of_sdl_RenderClear(SDL_Renderer *renderer);
+#ifndef OF_SDL_EXTRA_IMPL
+#define SDL_RenderClear of_sdl_RenderClear
+#endif
+
+/* ---- Deferred screen->textureSurface copy (io/gfx/video.cpp flip) -----
+ * See of_sdl_extra.c: of_sdl_UpperBlit defers this blit and this wrapper
+ * lets SDL_UpdateTexture read `screen` directly instead of the duplicate.
+ */
+int of_sdl_UpdateTexture(SDL_Texture *texture, const SDL_Rect *rect,
+                         const void *pixels, int pitch);
+#ifndef OF_SDL_EXTRA_IMPL
+#define SDL_UpdateTexture of_sdl_UpdateTexture
+#endif
+
 /* ---- Bounded audio latency (io/sound.cpp) -----------------------------
  * The Pocket's audio ring holds 131072 stereo pairs and the shim's pump
  * fills it to the brim, which at OpenJazz's 24 kHz is 5.5 seconds of
