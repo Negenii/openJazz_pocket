@@ -103,20 +103,31 @@ SDL_Surface *of_sdl_CreateRGBSurfaceWithFormatFrom(void *pixels, int w, int h, i
 #define SDL_CreateRGBSurfaceWithFormatFrom of_sdl_CreateRGBSurfaceWithFormatFrom
 #endif
 
-/* ---- Window size (io/gfx/video.cpp etc.) ------------------------------
+/* ---- Window size + palette-mapped 8-bit blits (io/gfx/video.cpp etc.) --
  * SDL_SetWindowSize: the shim only records w/h; OpenJazz creates the window
  * at 320x200 and resizes to DEFAULT_SCREEN 320x288 in Video::reset(). We
  * re-create the window surface through the shim's SDL 1.2 SDL_SetVideoMode,
  * which performs the OS mode switch (320x288 = the Pocket's 10:9 panel).
+ * SDL_UpperBlit (= SDL_BlitSurface): real SDL2 maps source palette indices
+ * to the closest destination-palette colour when two 8-bit surfaces have
+ * different palettes; OpenJazz's fonts, sprites and menus depend on that.
+ * The shim copies indices verbatim, so we do the mapping here.
  */
 void of_sdl_SetWindowSize(SDL_Window *win, int w, int h);
+int  of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect);
 #ifndef OF_SDL_EXTRA_IMPL
 #define SDL_SetWindowSize of_sdl_SetWindowSize
+#define SDL_UpperBlit     of_sdl_UpperBlit
 #endif
 
 void of_sdl_FreeSurface(SDL_Surface *s);
 #ifndef OF_SDL_EXTRA_IMPL
 #define SDL_FreeSurface of_sdl_FreeSurface
+#endif
+
+void of_sdl_FreePalette(SDL_Palette *palette);
+#ifndef OF_SDL_EXTRA_IMPL
+#define SDL_FreePalette of_sdl_FreePalette
 #endif
 
 #ifdef __cplusplus
