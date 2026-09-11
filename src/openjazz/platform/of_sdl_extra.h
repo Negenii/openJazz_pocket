@@ -136,12 +136,19 @@ void of_sdl_FreePalette(SDL_Palette *palette);
  * frame through it every flip, and source and destination are the same size,
  * so the scaling is pure waste: ~92k divides per frame at 320x288. When the
  * rectangles match we take the shim's unscaled blit instead, which memcpy's
- * whole rows for same-format surfaces.
+ * whole rows for same-format surfaces. The fast path only applies while no
+ * render target is set (see of_sdl_SetRenderTarget below); otherwise it
+ * falls back to the real SDL_RenderCopy so the active target is honoured.
  */
 int of_sdl_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture,
                       const SDL_Rect *srcrect, const SDL_Rect *dstrect);
 #ifndef OF_SDL_EXTRA_IMPL
 #define SDL_RenderCopy of_sdl_RenderCopy
+#endif
+
+int of_sdl_SetRenderTarget(SDL_Renderer *renderer, SDL_Texture *texture);
+#ifndef OF_SDL_EXTRA_IMPL
+#define SDL_SetRenderTarget of_sdl_SetRenderTarget
 #endif
 
 #ifdef __cplusplus

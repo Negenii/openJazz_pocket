@@ -220,11 +220,23 @@ int of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst
 	return 0;
 }
 
+/* The shim has no SDL_GetRenderTarget and SDL_Renderer is opaque, so we
+ * remember the target ourselves: of_sdl_RenderCopy's fast path writes to the
+ * window surface, which is only the right destination while no render target
+ * is set. Nothing in OpenJazz sets one today; this keeps the wrapper honest
+ * if that ever changes. */
+static SDL_Texture *g_render_target;
+
+int of_sdl_SetRenderTarget(SDL_Renderer *renderer, SDL_Texture *texture) {
+	g_render_target = texture;
+	return SDL_SetRenderTarget(renderer, texture);
+}
+
 int of_sdl_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture,
                       const SDL_Rect *srcrect, const SDL_Rect *dstrect) {
 	SDL_Surface *dst = SDL_GetWindowSurface(NULL);
 	Uint32 format; int access, tw, th;
-	if (dst && texture && SDL_QueryTexture(texture, &format, &access, &tw, &th) == 0) {
+	if (!g_render_target && dst && texture && SDL_QueryTexture(texture, &format, &access, &tw, &th) == 0) {
 		SDL_Rect sr, dr;
 		if (srcrect) sr = *srcrect; else { sr.x = 0; sr.y = 0; sr.w = tw; sr.h = th; }
 		if (dstrect) dr = *dstrect; else { dr.x = 0; dr.y = 0; dr.w = dst->w; dr.h = dst->h; }
