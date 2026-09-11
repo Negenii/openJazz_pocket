@@ -8,8 +8,8 @@ with the [openfpgaOS SDK](https://github.com/openfpgaOS/openfpgaSDK).
 
 - An Analogue Pocket on firmware 2.2 or newer, with openFPGA enabled.
 - An SD card.
-- The data files of Jazz Jackrabbit 1, which you must obtain legally. This
-  port contains no game data and never will.
+- The data files of Jazz Jackrabbit 1 obtained legally. This
+  core contains no game data.
 
 Legal sources for the data files:
 
@@ -60,8 +60,8 @@ image did not mount, the screen says so instead of failing silently.
 
 Fixed 320x288, the Pocket's 1600x1440 panel at an exact 5x integer scale
 with square pixels. The original ran at 320x200 on a 4:3 screen, so menu
-and cutscene art looks slightly flatter here. The trade-off buys a
-full-screen picture with no black bars.
+and cutscene art looks slightly flatter here. I'm just not exactly keen on
+black bars in game.
 
 ## Saves
 
@@ -120,3 +120,7 @@ runtime under `runtime/` carries the third-party terms described in
 - Jazz Jackrabbit is a trademark of Epic Games, and the game is (c) Epic
   MegaGames. This project is not affiliated with or endorsed by them, ships
   no game data, and uses the name only to say which game it plays.
+
+## Important note
+
+- RABBITS STINK
