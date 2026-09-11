@@ -4,10 +4,10 @@
         "metadata": {
             "platform_ids": ["openjazz"],
             "shortname": "OpenJazz",
-            "description": "OpenJazz on openfpgaOS",
+            "description": "Jazz Jackrabbit via OpenJazz on openfpgaOS",
             "author": "negenii",
-            "url": "",
-            "version": "0.1.12",
+            "url": "https://github.com/negenii/openJazz_pocket",
+            "version": "0.1.13",
             "date_release": "2026-09-11"
         },
         "framework": {
