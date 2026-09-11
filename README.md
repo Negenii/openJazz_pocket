@@ -89,7 +89,9 @@ See [docs/SDK-README.md](docs/SDK-README.md) for the SDK's own documentation.
 This is a fork of the openfpgaOS SDK, which is how cores for that runtime
 are built: the SDK sits at the top level and the port lives in
 `src/openjazz/`. OpenJazz itself is a submodule at
-`src/openjazz/openjazz/`, on a branch carrying one added platform file.
+`src/openjazz/openjazz/`, pinned to the `openfpga` branch of
+[this fork](https://github.com/Negenii/openjazz/tree/openfpga), which adds
+the openfpgaOS platform files and two small fixes on top of upstream.
 The SDK's own documentation is in [docs/SDK-README.md](docs/SDK-README.md).
 
 Directories worth knowing:

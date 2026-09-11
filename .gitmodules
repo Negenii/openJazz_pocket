@@ -1,3 +1,4 @@
 [submodule "src/openjazz/openjazz"]
 	path = src/openjazz/openjazz
-	url = https://github.com/AlisterT/openjazz.git
+	url = https://github.com/Negenii/openjazz.git
+	branch = openfpga
