@@ -93,7 +93,11 @@ class Canvas:
         """
         rows = self.px
         if transpose:
-            rows = [[self.px[y][x] for y in range(self.h)] for x in range(self.w)]
+            # Rotate rather than merely transpose: a plain transpose put the
+            # banner on screen mirrored left to right, so the source column is
+            # read from the far edge.
+            rows = [[self.px[y][self.w - 1 - x] for y in range(self.h)]
+                    for x in range(self.w)]
         out = bytearray()
         for row in rows:
             for v in row:
@@ -117,6 +121,97 @@ class Canvas:
                 line.append(ramp[(255 - v) * (len(ramp) - 1) // 255])
             lines.append("".join(line))
         return "\n".join(lines)
+
+
+def png_write(path, rows):
+    """Minimal 8-bit greyscale PNG writer (no filtering, one IDAT)."""
+    import struct, zlib
+    h, w = len(rows), len(rows[0])
+    raw = b"".join(b"\x00" + bytes(r) for r in rows)
+
+    def chunk(tag, data):
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+
+    ihdr = struct.pack(">IIBBBBB", w, h, 8, 0, 0, 0, 0)   # 8-bit greyscale
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n")
+        f.write(chunk(b"IHDR", ihdr))
+        f.write(chunk(b"IDAT", zlib.compress(raw, 9)))
+        f.write(chunk(b"IEND", b""))
+
+
+def png_read_grey(path):
+    """Read an 8-bit PNG (greyscale, RGB or RGBA, non-interlaced) as greys."""
+    import struct, zlib
+    data = open(path, "rb").read()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit("%s is not a PNG" % path)
+    pos, idat, hdr = 8, bytearray(), None
+    while pos < len(data):
+        (ln,) = struct.unpack(">I", data[pos:pos + 4])
+        tag = data[pos + 4:pos + 8]
+        body = data[pos + 8:pos + 8 + ln]
+        if tag == b"IHDR":
+            hdr = struct.unpack(">IIBBBBB", body)
+        elif tag == b"IDAT":
+            idat += body
+        elif tag == b"IEND":
+            break
+        pos += 12 + ln
+    w, h, depth, ctype, _comp, _filt, interlace = hdr
+    if depth != 8 or interlace or ctype not in (0, 2, 6):
+        raise SystemExit("need an 8-bit, non-interlaced greyscale/RGB/RGBA PNG "
+                         "(got depth %d, colour type %d, interlace %d)"
+                         % (depth, ctype, interlace))
+    nch = {0: 1, 2: 3, 6: 4}[ctype]
+    raw = zlib.decompress(bytes(idat))
+    stride = w * nch
+    rows, prev = [], bytearray(stride)
+    o = 0
+    for _ in range(h):
+        ft = raw[o]; o += 1
+        line = bytearray(raw[o:o + stride]); o += stride
+        for i in range(stride):
+            a = line[i - nch] if i >= nch else 0
+            b = prev[i]
+            c = prev[i - nch] if i >= nch else 0
+            if ft == 1: line[i] = (line[i] + a) & 0xFF
+            elif ft == 2: line[i] = (line[i] + b) & 0xFF
+            elif ft == 3: line[i] = (line[i] + ((a + b) >> 1)) & 0xFF
+            elif ft == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                pred = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
+                line[i] = (line[i] + pred) & 0xFF
+            elif ft != 0:
+                raise SystemExit("unknown PNG row filter %d" % ft)
+        prev = line
+        if nch == 1:
+            rows.append(list(line))
+        else:
+            rows.append([(line[i] * 299 + line[i + 1] * 587 + line[i + 2] * 114) // 1000
+                         for i in range(0, stride, nch)])
+    return rows
+
+
+def downscale(rows, w, h):
+    """Average square blocks down to w x h. The source must be an exact
+    integer multiple, so hand-drawn art can be made at a comfortable size."""
+    sh, sw = len(rows), len(rows[0])
+    if sw == w and sh == h:
+        return rows
+    if sw % w or sh % h or sw // w != sh // h:
+        raise SystemExit("image is %dx%d; need %dx%d or an exact integer "
+                         "multiple of it" % (sw, sh, w, h))
+    n = sw // w
+    out = []
+    for y in range(h):
+        row = []
+        for x in range(w):
+            block = [rows[y * n + dy][x * n + dx] for dy in range(n) for dx in range(n)]
+            row.append(sum(block) // len(block))
+        out.append(row)
+    return out
 
 
 def text_width(s, scale):
@@ -191,9 +286,22 @@ def main():
     ap.add_argument("--preview", action="store_true", help="print ASCII previews")
     ap.add_argument("--core-dir", default="dist/openjazz/Cores/negenii.OpenJazz")
     ap.add_argument("--platform-image", default="dist/openjazz/Platforms/_images/openjazz.bin")
+    ap.add_argument("--export-icon-png", metavar="PATH",
+                    help="write the generated icon as an editable PNG")
+    ap.add_argument("--import-icon-png", metavar="PATH",
+                    help="build icon.bin from a PNG (36x36, or an exact "
+                         "integer multiple) instead of generating it")
     a = ap.parse_args()
 
     icon, banner = build_icon(), build_banner()
+
+    if a.export_icon_png:
+        png_write(a.export_icon_png, icon.px)
+        print("wrote %s (%dx%d, 8-bit greyscale)" % (a.export_icon_png, ICON_W, ICON_H))
+
+    if a.import_icon_png:
+        icon.px = downscale(png_read_grey(a.import_icon_png), ICON_W, ICON_H)
+        print("icon taken from %s" % a.import_icon_png)
 
     if a.preview or not a.write:
         print("icon 36x36:")
