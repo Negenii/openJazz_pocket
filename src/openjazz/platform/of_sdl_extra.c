@@ -219,3 +219,30 @@ int of_sdl_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst
 	if (dstrect) { dstrect->w = sr.w; dstrect->h = sr.h; }
 	return 0;
 }
+
+int of_sdl_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture,
+                      const SDL_Rect *srcrect, const SDL_Rect *dstrect) {
+	SDL_Surface *dst = SDL_GetWindowSurface(NULL);
+	Uint32 format; int access, tw, th;
+	if (dst && texture && SDL_QueryTexture(texture, &format, &access, &tw, &th) == 0) {
+		SDL_Rect sr, dr;
+		if (srcrect) sr = *srcrect; else { sr.x = 0; sr.y = 0; sr.w = tw; sr.h = th; }
+		if (dstrect) dr = *dstrect; else { dr.x = 0; dr.y = 0; dr.w = dst->w; dr.h = dst->h; }
+		if (sr.w == dr.w && sr.h == dr.h && sr.w > 0 && sr.h > 0) {
+			void *pixels = NULL; int pitch = 0;
+			if (SDL_LockTexture(texture, NULL, &pixels, &pitch) == 0 && pixels) {
+				SDL_Surface *view = SDL_CreateRGBSurfaceWithFormatFrom(
+					pixels, tw, th, SDL_BITSPERPIXEL(format), pitch, format);
+				if (view) {
+					SDL_Rect d = dr;
+					int rc = SDL_UpperBlit(view, &sr, dst, &d);
+					SDL_FreeSurface(view);
+					SDL_UnlockTexture(texture);
+					return rc;
+				}
+				SDL_UnlockTexture(texture);
+			}
+		}
+	}
+	return SDL_RenderCopy(renderer, texture, srcrect, dstrect);
+}

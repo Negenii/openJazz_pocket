@@ -130,6 +130,20 @@ void of_sdl_FreePalette(SDL_Palette *palette);
 #define SDL_FreePalette of_sdl_FreePalette
 #endif
 
+/* ---- Unscaled RenderCopy (io/gfx/video.cpp flip()) --------------------
+ * The shim's SDL_RenderCopy always goes through SDL_UpperBlitScaled, which
+ * computes a 64-bit multiply and divide per pixel. OpenJazz copies the whole
+ * frame through it every flip, and source and destination are the same size,
+ * so the scaling is pure waste: ~92k divides per frame at 320x288. When the
+ * rectangles match we take the shim's unscaled blit instead, which memcpy's
+ * whole rows for same-format surfaces.
+ */
+int of_sdl_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture,
+                      const SDL_Rect *srcrect, const SDL_Rect *dstrect);
+#ifndef OF_SDL_EXTRA_IMPL
+#define SDL_RenderCopy of_sdl_RenderCopy
+#endif
+
 #ifdef __cplusplus
 }
 #endif
