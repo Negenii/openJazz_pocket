@@ -64,7 +64,12 @@ release: app.elf
 copy: all
 	@MISTER_IP="$(MISTER_IP)" $(SDK)/platforms/$(TARGET)/copy.sh "$(APP)" "app.elf"
 
-package: all
+# The release ZIP must not carry game data: players build jazz.iso from their
+# own Jazz Jackrabbit files with tools/mkjazz.sh. Stage without $(GAME_ASSETS)
+# for packaging only; `make` and `make copy` still include it so the SD card
+# is ready to play during development.
+package: app.elf
+	@$(SDK)/platforms/$(TARGET)/image.sh "$(APP)" "app.elf" "$(ROOT)" "$(DIST)"
 	@$(ROOT)/scripts/package.sh $(APP)
 
 # ── Desktop build: real SDL2 from Homebrew, same sources, same platform file ──
