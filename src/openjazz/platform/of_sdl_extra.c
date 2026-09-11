@@ -328,9 +328,17 @@ void of_sdl_CloseAudioDevice(SDL_AudioDeviceID dev) {
 }
 
 void of_sdl_Delay(Uint32 ms) {
+	/* Sleep in slices so the queue is topped up during the wait, not just
+	 * around it: with a ~171 ms target, one uninterrupted SDL_Delay longer
+	 * than that would drain the ring mid-sleep. Cutscene frame delays
+	 * (jj1scene.cpp) are data-driven and can exceed it. */
 	of_sdl_audio_pump();
-	SDL_Delay(ms);
-	of_sdl_audio_pump();
+	while (ms > 0) {
+		Uint32 slice = ms > 10 ? 10 : ms;
+		SDL_Delay(slice);
+		ms -= slice;
+		of_sdl_audio_pump();
+	}
 }
 
 void of_sdl_RenderPresent(SDL_Renderer *renderer) {
