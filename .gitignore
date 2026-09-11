@@ -8,6 +8,7 @@ src/*/app.elf
 src/openjazz/openjazz_pc
 src/openjazz/openjazz-log.html
 src/openjazz/openjazz.cfg
+tools/__pycache__/
 art/
 .DS_Store
 **/.DS_Store
