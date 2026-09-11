@@ -185,6 +185,19 @@
                     "adjust_small": 1,
                     "adjust_large": 4
                 }
+            },
+            {
+                "name": "Aspect Ratio",
+                "id": 80,
+                "type": "list",
+                "enabled": true,
+                "persist": true,
+                "address": "0xF700000C",
+                "defaultval": 0,
+                "options": [
+                    { "name": "Fullscreen 10:9", "value": "0x00000000" },
+                    { "name": "Original 4:3",    "value": "0x00000001" }
+                ]
             }
         ],
         "messages": []
