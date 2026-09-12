@@ -1,0 +1,17 @@
+{
+    "instance": {
+        "magic": "APF_VER_1",
+        "data_slots": [
+            { "id": 1, "filename": "os.bin" },
+            { "id": 2, "filename": "openjazz.ini" },
+            { "id": 3, "filename": "openjazz.elf" },
+            { "id": 4, "filename": "hh95.iso" },
+            { "id": 7, "filename": "bank.ofsf" },
+            { "id": 10, "filename": "hh95_0.sav" },
+            { "id": 11, "filename": "hh95_1.sav" },
+            { "id": 12, "filename": "hh95_2.sav" },
+            { "id": 13, "filename": "hh95_3.sav" },
+            { "id": 14, "filename": "hh95_4.sav" }
+        ]
+    }
+}

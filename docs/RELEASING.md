@@ -97,13 +97,16 @@ assumption, not a confirmed rule.
 
 ## Versioning
 
-The patch number counts commits: commit N of this repository carries version
-`0.1.N`. Every commit that ships bumps it in two places, which must agree.
-`version` in `dist/openjazz/Cores/negenii.OpenJazz/core.json` names the
-release ZIP and shows up in the Pocket's core list, and `OJ_VERSION` in
-`src/openjazz/Makefile` is what the game prints. N is the number of commits
-since the import commit that opens the history: `git rev-list --count
-b61859c5b4ec..HEAD`, plus one for the commit you are about to write.
+The patch number counts commits. The commit that raises the minor is `.0`,
+and every commit after it adds one. It has to agree in two places: `version`
+in `dist/openjazz/Cores/negenii.OpenJazz/core.json`, which names the release
+ZIP and shows up in the Pocket's core list, and `OJ_VERSION` in
+`src/openjazz/Makefile`, which the game prints.
+
+`git rev-list --count <commit that set the current minor>..HEAD` gives the
+patch level of the last commit; add one for the commit you are about to
+write. The minor moves when the core gains something a player would notice.
+It went to 0.2 when a second game appeared in the Pocket's list.
 
 ## Steps, in order
 
