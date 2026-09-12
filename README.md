@@ -28,11 +28,19 @@ fails immediately rather than producing a broken image.
 1. Unzip the release ZIP to the root of your Pocket's SD card. It adds
    `Cores/negenii.OpenJazz/`, `Assets/openjazz/` and
    `Platforms/openjazz.json`; merge with the folders already there.
-2. Build the data image from your game files:
+2. Build the data image from your game files, either way round:
+
+   Open `tools/jazz-iso.html` in a browser and drop the game folder on it.
+   On a Mac you can drop `Jazz Jackrabbit Collection.app`, or the `.pkg`
+   installer without installing it. The page is one self-contained file and
+   runs with no server and no internet connection.
+
+   Or from a terminal:
    ```
    tools/mkjazz.sh <folder-with-your-jazz-files> jazz.iso
    ```
-   This reads your files and writes a single ISO image. Nothing leaves your
+
+   Both read your files and write a single ISO image. Nothing leaves your
    machine, and the image is not something you should redistribute.
 3. Copy `jazz.iso` to `Assets/openjazz/common/` on the SD card, next to
    `openjazz.elf`.
@@ -101,6 +109,7 @@ Directories worth knowing:
 | `src/openjazz/` | the port: build rules and the SDL compatibility layer |
 | `src/openjazz/openjazz/` | OpenJazz, as a submodule |
 | `dist/openjazz/` | the core's static files: JSON, icon, platform art |
+| `tools/jazz-iso.html` | the same thing in a browser, by drag and drop |
 | `tools/mkjazz.sh` | builds `jazz.iso` from your game files |
 | `tools/mkart.py` | converts the core icon and platform banner to and from PNG |
 | `docs/RELEASING.md` | how a release and a catalogue listing are made |

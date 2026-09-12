@@ -1,0 +1,780 @@
+<!--
+  SPDX-License-Identifier: GPL-2.0-or-later AND OFL-1.1
+  SPDX-FileCopyrightText: (c) 2026 Evgeny Ugreninov
+  SPDX-FileCopyrightText: (c) 2022 AbFarid <farid.abbasbayli@gmail.com>
+
+  Builds jazz.iso for the OpenJazz Pocket core from Jazz Jackrabbit files.
+  A single self-contained file: no server, no network, no installed tools,
+  nothing else from this repository. Open it in a browser and it works.
+
+  Takes a game folder, a macOS .app bundle, or a macOS .pkg installer.
+
+  The embedded typeface is Analogue OS by AbFarid, a recreation of the font
+  Analogue OS uses on the Pocket, under the SIL Open Font License 1.1. Its
+  full text is in LICENSES/OFL-1.1.txt, and the original lives at
+  https://github.com/AbFarid/analogue-os-font
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jazz ISO Builder</title>
+<style>
+  @font-face {
+    font-family: "Analogue";
+    src: url("data:font/woff2;base64,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") format("woff2");
+    font-weight: normal;
+    font-style: normal;
+    font-display: block;
+  }
+
+  :root {
+    /* Analogue OS draws on a 5px grid blown up by a whole number. */
+    --scale: 3;
+    --unit: calc(1px * var(--scale));
+    --u: var(--unit);
+
+    --type: calc(5px * var(--scale));
+
+    --fg:  #ffffff;
+    --bg:  #000000;
+    --dim: #808080;
+  }
+  @media (max-width: 560px) { :root { --scale: 2; } }
+
+  * { box-sizing: border-box; }
+
+  /* Any display rule of ours outranks the browser's own [hidden] rule, and
+     the buttons set one, so say it here or nothing hidden stays hidden. */
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Analogue", ui-monospace, Menlo, Consolas, monospace;
+    font-size: var(--type);
+    letter-spacing: 1px;
+    line-height: 2;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 600px;
+    margin: 0 auto;
+    padding-inline: calc(var(--unit) * 6);
+    padding-block: calc(var(--unit) * 14) calc(var(--unit) * 10);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 8);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: calc(var(--type) * 2);
+    font-weight: normal;
+    line-height: 1.4;
+    letter-spacing: 2px;
+  }
+
+  #drop {
+    border: var(--unit) dashed var(--dim);
+    background: var(--bg);
+    padding: calc(var(--unit) * 12) calc(var(--unit) * 6);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(var(--unit) * 5);
+  }
+  #drop.hot { border-style: solid; border-color: var(--fg); }
+  /* Out of sight but still taking up its room, so nothing below it moves. */
+  #drop.gone { visibility: hidden; }
+
+  .drop-title { font-size: calc(var(--type) * 1.4); line-height: 1.6; }
+  .drop-note {
+    margin: 0;
+    color: var(--dim);
+    max-width: 34ch;
+    line-height: 1.8;
+  }
+  .drop-note b { font-weight: normal; color: var(--fg); }
+
+  /* The pill of Analogue OS, measured off the real thing: 26 rows tall, ends
+     ten steps wide, insets 9 7 5 4 3 2 2 1 1 0. The three copies differ only
+     in step size. The sizes are written out rather than held in a variable:
+     a variable inside a variable resolves where it is declared, not where it
+     is used, so the step would never reach the element that needs it. */
+  button {
+    font: inherit;
+    letter-spacing: inherit;
+    color: var(--bg);
+    background: var(--fg);
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 52px;
+    padding: 0 28px;
+    clip-path: polygon(18px 0,calc(100% - 18px) 0,calc(100% - 18px) 0,calc(100% - 18px) 2px,calc(100% - 14px) 2px,calc(100% - 14px) 4px,calc(100% - 10px) 4px,calc(100% - 10px) 6px,calc(100% - 8px) 6px,calc(100% - 8px) 8px,calc(100% - 6px) 8px,calc(100% - 6px) 10px,calc(100% - 4px) 10px,calc(100% - 4px) 12px,calc(100% - 4px) 12px,calc(100% - 4px) 14px,calc(100% - 2px) 14px,calc(100% - 2px) 16px,calc(100% - 2px) 16px,calc(100% - 2px) 18px,100% 18px,100% 20px,100% 20px,100% 22px,100% 22px,100% 24px,100% 24px,100% 26px,100% 26px,100% 28px,100% 28px,100% 30px,100% 30px,100% 32px,100% 32px,100% 34px,calc(100% - 2px) 34px,calc(100% - 2px) 36px,calc(100% - 2px) 36px,calc(100% - 2px) 38px,calc(100% - 4px) 38px,calc(100% - 4px) 40px,calc(100% - 4px) 40px,calc(100% - 4px) 42px,calc(100% - 6px) 42px,calc(100% - 6px) 44px,calc(100% - 8px) 44px,calc(100% - 8px) 46px,calc(100% - 10px) 46px,calc(100% - 10px) 48px,calc(100% - 14px) 48px,calc(100% - 14px) 50px,calc(100% - 18px) 50px,calc(100% - 18px) 52px,18px 52px,18px 50px,14px 50px,14px 48px,10px 48px,10px 46px,8px 46px,8px 44px,6px 44px,6px 42px,4px 42px,4px 40px,4px 40px,4px 38px,2px 38px,2px 36px,2px 36px,2px 34px,0 34px,0 32px,0 32px,0 30px,0 30px,0 28px,0 28px,0 26px,0 26px,0 24px,0 24px,0 22px,0 22px,0 20px,0 20px,0 18px,2px 18px,2px 16px,2px 16px,2px 14px,4px 14px,4px 12px,4px 12px,4px 10px,6px 10px,6px 8px,8px 8px,8px 6px,10px 6px,10px 4px,14px 4px,14px 2px,18px 2px,18px 0);
+  }
+  button:hover:not(:disabled) { background: #d0d0d0; }
+  button:disabled { background: var(--dim); cursor: default; }
+  /* An outline would be cut away by the clip, so focus draws a ring inside. */
+  button:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 var(--u) var(--bg);
+  }
+
+  .buttons { display: flex; gap: calc(var(--unit) * 4); flex-wrap: wrap; justify-content: center; }
+
+  #stage { display: flex; flex-direction: column; gap: calc(var(--unit) * 4); }
+
+  /* A blocky meter rather than a smooth bar: it fills in whole cells. */
+  .meter {
+    height: 26px;
+    background: var(--dim);
+    clip-path: polygon(9px 0,calc(100% - 9px) 0,calc(100% - 9px) 0,calc(100% - 9px) 1px,calc(100% - 7px) 1px,calc(100% - 7px) 2px,calc(100% - 5px) 2px,calc(100% - 5px) 3px,calc(100% - 4px) 3px,calc(100% - 4px) 4px,calc(100% - 3px) 4px,calc(100% - 3px) 5px,calc(100% - 2px) 5px,calc(100% - 2px) 6px,calc(100% - 2px) 6px,calc(100% - 2px) 7px,calc(100% - 1px) 7px,calc(100% - 1px) 8px,calc(100% - 1px) 8px,calc(100% - 1px) 9px,100% 9px,100% 10px,100% 10px,100% 11px,100% 11px,100% 12px,100% 12px,100% 13px,100% 13px,100% 14px,100% 14px,100% 15px,100% 15px,100% 16px,100% 16px,100% 17px,calc(100% - 1px) 17px,calc(100% - 1px) 18px,calc(100% - 1px) 18px,calc(100% - 1px) 19px,calc(100% - 2px) 19px,calc(100% - 2px) 20px,calc(100% - 2px) 20px,calc(100% - 2px) 21px,calc(100% - 3px) 21px,calc(100% - 3px) 22px,calc(100% - 4px) 22px,calc(100% - 4px) 23px,calc(100% - 5px) 23px,calc(100% - 5px) 24px,calc(100% - 7px) 24px,calc(100% - 7px) 25px,calc(100% - 9px) 25px,calc(100% - 9px) 26px,9px 26px,9px 25px,7px 25px,7px 24px,5px 24px,5px 23px,4px 23px,4px 22px,3px 22px,3px 21px,2px 21px,2px 20px,2px 20px,2px 19px,1px 19px,1px 18px,1px 18px,1px 17px,0 17px,0 16px,0 16px,0 15px,0 15px,0 14px,0 14px,0 13px,0 13px,0 12px,0 12px,0 11px,0 11px,0 10px,0 10px,0 9px,1px 9px,1px 8px,1px 8px,1px 7px,2px 7px,2px 6px,2px 6px,2px 5px,3px 5px,3px 4px,4px 4px,4px 3px,5px 3px,5px 2px,7px 2px,7px 1px,9px 1px,9px 0);
+  }
+  .meter .fill {
+    background: var(--fg);
+    height: 100%;
+    width: 0;
+    clip-path: polygon(9px 0,calc(100% - 9px) 0,calc(100% - 9px) 0,calc(100% - 9px) 1px,calc(100% - 7px) 1px,calc(100% - 7px) 2px,calc(100% - 5px) 2px,calc(100% - 5px) 3px,calc(100% - 4px) 3px,calc(100% - 4px) 4px,calc(100% - 3px) 4px,calc(100% - 3px) 5px,calc(100% - 2px) 5px,calc(100% - 2px) 6px,calc(100% - 2px) 6px,calc(100% - 2px) 7px,calc(100% - 1px) 7px,calc(100% - 1px) 8px,calc(100% - 1px) 8px,calc(100% - 1px) 9px,100% 9px,100% 10px,100% 10px,100% 11px,100% 11px,100% 12px,100% 12px,100% 13px,100% 13px,100% 14px,100% 14px,100% 15px,100% 15px,100% 16px,100% 16px,100% 17px,calc(100% - 1px) 17px,calc(100% - 1px) 18px,calc(100% - 1px) 18px,calc(100% - 1px) 19px,calc(100% - 2px) 19px,calc(100% - 2px) 20px,calc(100% - 2px) 20px,calc(100% - 2px) 21px,calc(100% - 3px) 21px,calc(100% - 3px) 22px,calc(100% - 4px) 22px,calc(100% - 4px) 23px,calc(100% - 5px) 23px,calc(100% - 5px) 24px,calc(100% - 7px) 24px,calc(100% - 7px) 25px,calc(100% - 9px) 25px,calc(100% - 9px) 26px,9px 26px,9px 25px,7px 25px,7px 24px,5px 24px,5px 23px,4px 23px,4px 22px,3px 22px,3px 21px,2px 21px,2px 20px,2px 20px,2px 19px,1px 19px,1px 18px,1px 18px,1px 17px,0 17px,0 16px,0 16px,0 15px,0 15px,0 14px,0 14px,0 13px,0 13px,0 12px,0 12px,0 11px,0 11px,0 10px,0 10px,0 9px,1px 9px,1px 8px,1px 8px,1px 7px,2px 7px,2px 6px,2px 6px,2px 5px,3px 5px,3px 4px,4px 4px,4px 3px,5px 3px,5px 2px,7px 2px,7px 1px,9px 1px,9px 0);
+  }
+
+  #save {
+    width: 100%;
+    margin-top: calc(var(--unit) * 4);
+    height: 78px;
+    padding: 0 36px;
+    font-size: calc(var(--type) * 1.2);
+    clip-path: polygon(27px 0,calc(100% - 27px) 0,calc(100% - 27px) 0,calc(100% - 27px) 3px,calc(100% - 21px) 3px,calc(100% - 21px) 6px,calc(100% - 15px) 6px,calc(100% - 15px) 9px,calc(100% - 12px) 9px,calc(100% - 12px) 12px,calc(100% - 9px) 12px,calc(100% - 9px) 15px,calc(100% - 6px) 15px,calc(100% - 6px) 18px,calc(100% - 6px) 18px,calc(100% - 6px) 21px,calc(100% - 3px) 21px,calc(100% - 3px) 24px,calc(100% - 3px) 24px,calc(100% - 3px) 27px,100% 27px,100% 30px,100% 30px,100% 33px,100% 33px,100% 36px,100% 36px,100% 39px,100% 39px,100% 42px,100% 42px,100% 45px,100% 45px,100% 48px,100% 48px,100% 51px,calc(100% - 3px) 51px,calc(100% - 3px) 54px,calc(100% - 3px) 54px,calc(100% - 3px) 57px,calc(100% - 6px) 57px,calc(100% - 6px) 60px,calc(100% - 6px) 60px,calc(100% - 6px) 63px,calc(100% - 9px) 63px,calc(100% - 9px) 66px,calc(100% - 12px) 66px,calc(100% - 12px) 69px,calc(100% - 15px) 69px,calc(100% - 15px) 72px,calc(100% - 21px) 72px,calc(100% - 21px) 75px,calc(100% - 27px) 75px,calc(100% - 27px) 78px,27px 78px,27px 75px,21px 75px,21px 72px,15px 72px,15px 69px,12px 69px,12px 66px,9px 66px,9px 63px,6px 63px,6px 60px,6px 60px,6px 57px,3px 57px,3px 54px,3px 54px,3px 51px,0 51px,0 48px,0 48px,0 45px,0 45px,0 42px,0 42px,0 39px,0 39px,0 36px,0 36px,0 33px,0 33px,0 30px,0 30px,0 27px,3px 27px,3px 24px,3px 24px,3px 21px,6px 21px,6px 18px,6px 18px,6px 15px,9px 15px,9px 12px,12px 12px,12px 9px,15px 9px,15px 6px,21px 6px,21px 3px,27px 3px,27px 0);
+  }
+
+  .status { margin: 0; text-align: center; line-height: 1.8; }
+  .status.error {
+    background: var(--fg);
+    color: var(--bg);
+    padding: 0 calc(var(--unit) * 3);
+    display: inline-block;
+    align-self: center;
+  }
+  .status.done { color: var(--fg); }
+  .facts { margin: 0; text-align: center; color: var(--dim); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Jazz ISO Builder</h1>
+  </header>
+
+  <section id="drop">
+    <div class="drop-title">Drop it here</div>
+    <p class="drop-note">
+      A game folder, <b>Jazz Jackrabbit Collection.app</b>, or the
+      <b>.pkg</b> installer. Any of the three, no unpacking needed.
+    </p>
+    <div class="buttons">
+      <button type="button" id="pickBtn">Choose a folder</button>
+      <button type="button" id="pkgBtn">Choose an installer</button>
+    </div>
+    <input type="file" id="picker" webkitdirectory directory multiple hidden>
+    <input type="file" id="pkgPicker" accept=".pkg" hidden>
+  </section>
+
+  <section id="stage">
+    <p class="status" id="status" hidden></p>
+    <div class="meter" id="meter" hidden><div class="fill" id="fill"></div></div>
+    <p class="facts" id="facts" hidden></p>
+    <button type="button" id="save" hidden>Download jazz.iso</button>
+  </section>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const SECTOR = 2048;
+  const REQUIRED = ["LEVEL0.000", "MENU.000", "FONTS.000", "PANEL.000"];
+  const MIN_RUN_MS = 1000;   // the meter always takes at least this long
+  const CELLS = 40;          // the meter fills in whole cells, not smoothly
+
+  const els = {
+    drop: document.getElementById("drop"),
+    status: document.getElementById("status"),
+    meter: document.getElementById("meter"),
+    fill: document.getElementById("fill"),
+    save: document.getElementById("save"),
+    facts: document.getElementById("facts"),
+    pickBtn: document.getElementById("pickBtn"),
+    picker: document.getElementById("picker"),
+    pkgBtn: document.getElementById("pkgBtn"),
+    pkgPicker: document.getElementById("pkgPicker"),
+  };
+
+  const say = (text, kind) => {
+    els.status.hidden = false;
+    els.status.textContent = text;
+    els.status.className = "status" + (kind ? " " + kind : "");
+  };
+  const bytes = n => {
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+    return (n / 1048576).toFixed(1) + " MB";
+  };
+  const yieldToUI = () => new Promise(r => setTimeout(r, 0));
+
+  /* ---------- reading what was dropped -------------------------------- */
+
+  const MAX_FILES = 20000;
+  const MAX_DEPTH = 8;
+
+  function readAllEntries(reader) {
+    // readEntries hands back a batch at a time and signals the end with [].
+    return new Promise((resolve, reject) => {
+      const all = [];
+      const pump = () => reader.readEntries(batch => {
+        if (!batch.length) return resolve(all);
+        all.push(...batch);
+        pump();
+      }, reject);
+      pump();
+    });
+  }
+
+  async function walkEntry(entry, dir, out, depth) {
+    if (out.length >= MAX_FILES || depth > MAX_DEPTH) return;
+    if (entry.name.startsWith(".") || entry.name === "__MACOSX") return;
+    if (entry.isFile) {
+      const file = await new Promise((res, rej) => entry.file(res, rej));
+      out.push({ dir, name: entry.name, size: file.size,
+                 read: async () => new Uint8Array(await file.arrayBuffer()) });
+      return;
+    }
+    if (entry.isDirectory) {
+      const kids = await readAllEntries(entry.createReader());
+      const sub = dir ? dir + "/" + entry.name : entry.name;
+      for (const k of kids) await walkEntry(k, sub, out, depth + 1);
+    }
+  }
+
+  function fromFileList(list) {
+    const out = [];
+    for (const file of list) {
+      const rel = file.webkitRelativePath || file.name;
+      const parts = rel.split("/");
+      const name = parts.pop();
+      if (name.startsWith(".") || parts.some(p => p.startsWith(".") || p === "__MACOSX")) continue;
+      out.push({ dir: parts.join("/"), name, size: file.size,
+                 read: async () => new Uint8Array(await file.arrayBuffer()) });
+    }
+    return out;
+  }
+
+  /* ---------- macOS installer packages --------------------------------- */
+
+  // A .pkg is a xar archive: header, a compressed table of contents in XML,
+  // then a heap of blobs. The game sits in one of those blobs, gzipped, as a
+  // cpio archive. GOG puts it in "Scripts" rather than the usual "Payload",
+  // so the blobs are sniffed by content instead of trusted by name.
+
+  async function decompress(bytes, format) {
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(format));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+
+  function looksGzip(b) { return b.length > 2 && b[0] === 0x1f && b[1] === 0x8b; }
+  function looksZlib(b) {
+    return b.length > 2 && (b[0] & 0x0f) === 8 && ((b[0] << 8 | b[1]) % 31) === 0;
+  }
+  function looksCpio(b) {
+    if (b.length < 6) return false;
+    const m = String.fromCharCode(b[0], b[1], b[2], b[3], b[4], b[5]);
+    return m === "070707" || m === "070701" || m === "070702";
+  }
+
+  async function unwrap(bytes) {
+    // Peel compression layers until something recognisable turns up.
+    for (let i = 0; i < 3; i++) {
+      if (looksCpio(bytes)) return bytes;
+      if (looksGzip(bytes)) { bytes = await decompress(bytes, "gzip"); continue; }
+      if (looksZlib(bytes)) { bytes = await decompress(bytes, "deflate"); continue; }
+      break;
+    }
+    return bytes;
+  }
+
+  function parseCpio(buf) {
+    const out = [];
+    const txt = (o, n) => {
+      let s = "";
+      for (let i = 0; i < n; i++) s += String.fromCharCode(buf[o + i]);
+      return s;
+    };
+    let off = 0;
+    while (off + 6 <= buf.length) {
+      const magic = txt(off, 6);
+      let mode, size, nameLen, headerLen, pad;
+      if (magic === "070707") {
+        mode = parseInt(txt(off + 18, 6), 8);
+        nameLen = parseInt(txt(off + 59, 6), 8);
+        size = parseInt(txt(off + 65, 11), 8);
+        headerLen = 76;
+        pad = 0;
+      } else if (magic === "070701" || magic === "070702") {
+        mode = parseInt(txt(off + 14, 8), 16);
+        size = parseInt(txt(off + 54, 8), 16);
+        nameLen = parseInt(txt(off + 94, 8), 16);
+        headerLen = 110;
+        pad = 4;
+      } else break;
+      if (!isFinite(mode) || !isFinite(size) || !isFinite(nameLen)) break;
+      const name = txt(off + headerLen, Math.max(0, nameLen - 1));
+      let at = off + headerLen + nameLen;
+      if (pad) at += (pad - (at % pad)) % pad;
+      let end = at + size;
+      if (pad) end += (pad - (end % pad)) % pad;
+      off = end;
+      if (name === "TRAILER!!!") break;
+      if ((mode & 0o170000) === 0o100000) out.push({ path: name, size, at });
+    }
+    return out;
+  }
+
+  async function entriesFromPkg(file) {
+    if (typeof DecompressionStream === "undefined") {
+      throw new Error("this browser cannot open installers, try the game folder instead");
+    }
+    const raw = new Uint8Array(await file.arrayBuffer());
+    const dv = new DataView(raw.buffer);
+    if (String.fromCharCode(raw[0], raw[1], raw[2], raw[3]) !== "xar!") {
+      throw new Error("that is not a macOS installer package");
+    }
+    const headerLen = dv.getUint16(4);
+    const tocLen = Number(dv.getBigUint64(8));
+    const heap = headerLen + tocLen;
+    const tocXml = await decompress(raw.subarray(headerLen, heap), "deflate");
+    const toc = new DOMParser().parseFromString(new TextDecoder().decode(tocXml), "application/xml");
+
+    // Biggest blob first: the game is the bulk of any installer that holds it.
+    const blobs = [...toc.querySelectorAll("file > data")].map(d => ({
+      offset: Number(d.querySelector("offset").textContent),
+      length: Number(d.querySelector("length").textContent),
+    })).sort((a, b) => b.length - a.length);
+
+    for (const blob of blobs) {
+      if (blob.length < 65536) continue;
+      let bytes;
+      try {
+        bytes = await unwrap(raw.subarray(heap + blob.offset, heap + blob.offset + blob.length));
+      } catch (err) { continue; }
+      if (!looksCpio(bytes)) continue;
+      const files = parseCpio(bytes);
+      if (!files.length) continue;
+      return files.map(f => {
+        const clean = f.path.replace(/^\.\//, "");
+        const parts = clean.split("/");
+        const name = parts.pop();
+        return {
+          dir: parts.join("/"),
+          name,
+          size: f.size,
+          read: async () => bytes.subarray(f.at, f.at + f.size),
+        };
+      }).filter(e => !e.name.startsWith("."));
+    }
+    throw new Error("no game files inside that installer");
+  }
+
+  /* ---------- picking the folder that holds the game ------------------- */
+
+  function chooseGameDir(entries) {
+    const byDir = new Map();
+    for (const e of entries) {
+      if (!byDir.has(e.dir)) byDir.set(e.dir, []);
+      byDir.get(e.dir).push(e);
+    }
+    let best = null;
+    for (const [dir, files] of byDir) {
+      const upper = new Map(files.map(f => [f.name.toUpperCase(), f]));
+      const hits = REQUIRED.filter(r => upper.has(r)).length;
+      if (!hits) continue;
+      const depth = dir ? dir.split("/").length : 0;
+      const cand = { dir, files, hits, depth, upper };
+      if (!best || hits > best.hits ||
+          (hits === best.hits && depth < best.depth) ||
+          (hits === best.hits && depth === best.depth && files.length > best.files.length)) {
+        best = cand;
+      }
+    }
+    return best;
+  }
+
+  /* ---------- ISO 9660 ------------------------------------------------- */
+
+  function isoName(name) {
+    let base = name, ext = "";
+    const dot = name.lastIndexOf(".");
+    if (dot > 0) { base = name.slice(0, dot); ext = name.slice(dot + 1); }
+    const clean = s => s.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+    base = clean(base).slice(0, 8) || "_";
+    ext = clean(ext).slice(0, 3);
+    return { base, ext, full: ext ? base + "." + ext : base };
+  }
+
+  function compareIso(a, b) {
+    // Name field then extension, each padded with spaces, as ISO 9660 orders them.
+    const pad = (s, n) => s.padEnd(n, " ");
+    const w = Math.max(a.base.length, b.base.length);
+    const x = Math.max(a.ext.length, b.ext.length);
+    const an = pad(a.base, w), bn = pad(b.base, w);
+    if (an !== bn) return an < bn ? -1 : 1;
+    const ae = pad(a.ext, x), be = pad(b.ext, x);
+    if (ae !== be) return ae < be ? -1 : 1;
+    return 0;
+  }
+
+  function both32(dv, off, v) { dv.setUint32(off, v, true); dv.setUint32(off + 4, v, false); }
+  function both16(dv, off, v) { dv.setUint16(off, v, true); dv.setUint16(off + 2, v, false); }
+
+  function dirRecord(nameBytes, lba, size, isDir, when) {
+    let len = 33 + nameBytes.length;
+    if (len % 2) len++;
+    const b = new Uint8Array(len);
+    const dv = new DataView(b.buffer);
+    b[0] = len;
+    both32(dv, 2, lba);
+    both32(dv, 10, size);
+    b[18] = when.getUTCFullYear() - 1900;
+    b[19] = when.getUTCMonth() + 1;
+    b[20] = when.getUTCDate();
+    b[21] = when.getUTCHours();
+    b[22] = when.getUTCMinutes();
+    b[23] = when.getUTCSeconds();
+    b[24] = 0;
+    b[25] = isDir ? 0x02 : 0x00;
+    both16(dv, 28, 1);
+    b[32] = nameBytes.length;
+    b.set(nameBytes, 33);
+    return b;
+  }
+
+  const ascii = s => Uint8Array.from(s, c => c.charCodeAt(0) & 0x7f);
+
+  function writeStr(buf, off, text, len) {
+    buf.set(ascii(text.padEnd(len, " ").slice(0, len)), off);
+  }
+
+  function dateString(when) {
+    const p = (n, w) => String(n).padStart(w, "0");
+    return p(when.getUTCFullYear(), 4) + p(when.getUTCMonth() + 1, 2) + p(when.getUTCDate(), 2) +
+           p(when.getUTCHours(), 2) + p(when.getUTCMinutes(), 2) + p(when.getUTCSeconds(), 2) + "00";
+  }
+
+  async function buildIso(files, onProgress) {
+    const when = new Date();
+
+    // Name every entry first: mangling can collide, and the fix has to happen
+    // before any offset is computed.
+    const taken = new Set();
+    const items = files.map(f => {
+      let n = isoName(f.name);
+      if (taken.has(n.full)) {
+        for (let i = 1; i < 1000; i++) {
+          const base = n.base.slice(0, 8 - String(i).length) + i;
+          const cand = n.ext ? base + "." + n.ext : base;
+          if (!taken.has(cand)) { n = { base, ext: n.ext, full: cand }; break; }
+        }
+      }
+      taken.add(n.full);
+      return { src: f, iso: n, size: f.size };
+    });
+    items.sort((a, b) => compareIso(a.iso, b.iso));
+
+    // Root directory: "." and ".." first, then the files. A record may not
+    // straddle a sector boundary, so lay the extent out once and keep the
+    // offsets; the writing pass below reuses them.
+    const dot = dirRecord(new Uint8Array([0]), 0, 0, true, when);
+    const dotdot = dirRecord(new Uint8Array([1]), 0, 0, true, when);
+    let pos = 0;
+    const place = len => {
+      if (Math.floor(pos / SECTOR) !== Math.floor((pos + len - 1) / SECTOR)) {
+        pos = Math.ceil(pos / SECTOR) * SECTOR;
+      }
+      const at = pos;
+      pos += len;
+      return at;
+    };
+    const dotAt = place(dot.length);
+    const dotdotAt = place(dotdot.length);
+    for (const it of items) {
+      it.recLen = 33 + it.iso.full.length + ((33 + it.iso.full.length) % 2);
+      it.recAt = place(it.recLen);
+    }
+    const rootSectors = Math.max(1, Math.ceil(pos / SECTOR));
+
+    const ROOT_LBA = 20;
+    let lba = ROOT_LBA + rootSectors;
+    for (const it of items) {
+      it.lba = lba;
+      lba += Math.ceil(it.size / SECTOR) || 1;
+    }
+    const totalSectors = lba;
+
+    const image = new Uint8Array(totalSectors * SECTOR);
+    const dv = new DataView(image.buffer);
+
+    // Primary volume descriptor.
+    const pvd = 16 * SECTOR;
+    image[pvd] = 1;
+    writeStr(image, pvd + 1, "CD001", 5);
+    image[pvd + 6] = 1;
+    writeStr(image, pvd + 8, "", 32);
+    writeStr(image, pvd + 40, "JAZZ", 32);
+    both32(dv, pvd + 80, totalSectors);
+    both16(dv, pvd + 120, 1);
+    both16(dv, pvd + 124, 1);
+    both16(dv, pvd + 128, SECTOR);
+    both32(dv, pvd + 132, 10);
+    dv.setUint32(pvd + 140, 18, true);
+    dv.setUint32(pvd + 148, 19, false);
+    image.set(dirRecord(new Uint8Array([0]), ROOT_LBA, rootSectors * SECTOR, true, when), pvd + 156);
+    for (const off of [190, 318, 446, 574]) writeStr(image, pvd + off, "", 128);
+    for (const off of [702, 739, 776]) writeStr(image, pvd + off, "", 37);
+    const stamp = dateString(when);
+    for (const off of [813, 830, 847, 864]) writeStr(image, pvd + off, stamp, 16);
+    image[pvd + 881] = 1;
+
+    // Volume descriptor set terminator.
+    image[17 * SECTOR] = 0xff;
+    writeStr(image, 17 * SECTOR + 1, "CD001", 5);
+    image[17 * SECTOR + 6] = 1;
+
+    // Path tables, one little-endian and one big-endian, root only.
+    const lpt = 18 * SECTOR, mpt = 19 * SECTOR;
+    image[lpt] = 1; dv.setUint32(lpt + 2, ROOT_LBA, true); dv.setUint16(lpt + 6, 1, true);
+    image[mpt] = 1; dv.setUint32(mpt + 2, ROOT_LBA, false); dv.setUint16(mpt + 6, 1, false);
+
+    // Root directory extent, at the offsets computed above.
+    const rootBase = ROOT_LBA * SECTOR;
+    image.set(dot, rootBase + dotAt);
+    image.set(dotdot, rootBase + dotdotAt);
+    for (const it of items) {
+      image.set(dirRecord(ascii(it.iso.full), it.lba, it.size, false, when), rootBase + it.recAt);
+    }
+
+    // File data.
+    let done = 0;
+    for (const it of items) {
+      const buf = await it.src.read();
+      image.set(buf, it.lba * SECTOR);
+      done++;
+      if (done % 25 === 0) { onProgress(done / items.length); await yieldToUI(); }
+    }
+    onProgress(1);
+    return { image, items, totalSectors, rootSectors };
+  }
+
+  /* ---------- reading the result back ---------------------------------- */
+
+  function inspectIso(image) {
+    const dv = new DataView(image.buffer, image.byteOffset, image.byteLength);
+    const tag = off => String.fromCharCode.apply(null, image.slice(off + 1, off + 6));
+    let pvd = -1;
+    for (let s = 16; s < 32; s++) {
+      const off = s * SECTOR;
+      if (off + SECTOR > image.length || tag(off) !== "CD001") break;
+      if (image[off] === 1) { pvd = off; break; }
+    }
+    if (pvd < 0) return { ok: false, reason: "the finished image has no volume descriptor" };
+
+    const label = String.fromCharCode.apply(null, image.slice(pvd + 40, pvd + 72)).trim();
+    const rootLba = dv.getUint32(pvd + 158, true);
+    const rootLen = dv.getUint32(pvd + 166, true);
+
+    const files = [];
+    const base = rootLba * SECTOR;
+    let off = base;
+    while (off < base + rootLen) {
+      const len = image[off];
+      if (len === 0) {
+        off = base + (Math.floor((off - base) / SECTOR) + 1) * SECTOR;
+        continue;
+      }
+      const size = dv.getUint32(off + 10, true);
+      const flags = image[off + 25];
+      const nlen = image[off + 32];
+      const name = String.fromCharCode.apply(null, image.slice(off + 33, off + 33 + nlen));
+      if (nlen > 1 && !(flags & 0x02)) files.push({ name: name.split(";")[0], size });
+      off += len;
+    }
+    return { ok: true, label, files, sectors: dv.getUint32(pvd + 80, true) };
+  }
+
+  /* ---------- checking the finished image ------------------------------ */
+
+  function verify(out) {
+    const check = inspectIso(out.image);
+    if (!check.ok) return check.reason;
+    const byName = new Map(check.files.map(f => [f.name, f.size]));
+    const missing = REQUIRED.filter(r => !byName.has(r));
+    if (missing.length) return "these are missing from the image: " + missing.join(", ");
+    for (const it of out.items) {
+      const got = byName.get(it.iso.full);
+      if (got !== undefined && got !== it.size) return "wrong size in the image: " + it.iso.full;
+    }
+    if (check.files.length !== out.items.length) {
+      return "packed " + out.items.length + " files but the image holds " + check.files.length;
+    }
+    return null;
+  }
+
+  /* ---------- one flow: take input, convert, offer the file ------------ */
+
+  let busy = false;
+
+  function reset() {
+    els.save.hidden = true;
+    els.facts.hidden = true;
+    els.meter.hidden = true;
+    els.fill.style.width = "0%";
+  }
+
+  // The work can finish in a blink, which reads as "nothing happened". Let the
+  // meter take its time: it shows the lesser of real progress and elapsed time,
+  // so it always travels the full width and never overstates the work.
+  function runBar(getReal) {
+    const started = performance.now();
+    return new Promise(resolve => {
+      const tick = () => {
+        const elapsed = (performance.now() - started) / MIN_RUN_MS;
+        const shown = Math.min(getReal(), elapsed);
+        const pct = Math.round(shown * CELLS) / CELLS;
+        // Below two cap widths the stepped ends would overlap into a blob.
+        els.fill.style.width = pct <= 0 ? "0" : "max(" + (pct * 100) + "%, 20px)";
+        if (shown >= 1) return resolve();
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
+  async function convert(entries, label) {
+    const pick = chooseGameDir(entries);
+    if (!pick || pick.hits < REQUIRED.length) {
+      say("No Jazz Jackrabbit files in " + label + ". Looked through " +
+          entries.length + " files for " + REQUIRED.join(", ") + ".", "error");
+      return false;
+    }
+
+    let real = 0;
+    els.meter.hidden = false;
+    say("Building the image from " + pick.files.length + " files...");
+
+    const [out] = await Promise.all([
+      buildIso(pick.files, f => { real = f; }),
+      runBar(() => real),
+    ]);
+
+    const problem = verify(out);
+    if (problem) {
+      say("Something went wrong: " + problem, "error");
+      return false;
+    }
+
+    say("Ready.", "done");
+    els.facts.textContent = "jazz.iso · " + bytes(out.image.length);
+    els.facts.hidden = false;
+    els.save.hidden = false;
+    els.save.onclick = () => {
+      const url = URL.createObjectURL(new Blob([out.image], { type: "application/octet-stream" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "jazz.iso";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    };
+    return true;
+  }
+
+  async function handle(job, label) {
+    if (busy) return;
+    busy = true;
+    reset();
+    els.drop.classList.add("gone");
+    say("Reading " + label + "...");
+    try {
+      const ok = await convert(await job(), label);
+      if (!ok) els.drop.classList.remove("gone");
+    } catch (err) {
+      els.drop.classList.remove("gone");
+      say("Could not read " + label + ": " + (err && err.message || err), "error");
+    } finally {
+      busy = false;
+    }
+  }
+
+  /* ---------- input ----------------------------------------------------- */
+
+  function fromDrop(dt) {
+    const dropped = [...dt.files];
+    if (dropped.length === 1 && /\.pkg$/i.test(dropped[0].name)) {
+      return { label: "the installer", job: () => entriesFromPkg(dropped[0]) };
+    }
+    const roots = [...dt.items]
+      .map(i => i.webkitGetAsEntry && i.webkitGetAsEntry())
+      .filter(Boolean);
+    if (!roots.length) return null;
+    return {
+      label: roots.length === 1 ? "“" + roots[0].name + "”" : "what you dropped",
+      job: async () => {
+        const out = [];
+        for (const r of roots) await walkEntry(r, "", out, 0);
+        return out;
+      },
+    };
+  }
+
+  // The whole window takes drops: one, so a near miss still lands, and two,
+  // because the zone goes invisible after a conversion and an invisible
+  // element receives no events.
+  window.addEventListener("dragover", e => {
+    e.preventDefault();
+    els.drop.classList.add("hot");
+  });
+  window.addEventListener("dragleave", e => {
+    if (!e.relatedTarget) els.drop.classList.remove("hot");
+  });
+  window.addEventListener("drop", e => {
+    e.preventDefault();
+    els.drop.classList.remove("hot");
+    const what = fromDrop(e.dataTransfer);
+    if (!what) {
+      say("This browser did not hand over the folder. Use the button instead.", "error");
+      return;
+    }
+    handle(what.job, what.label);
+  });
+
+  els.pickBtn.addEventListener("click", () => els.picker.click());
+  els.picker.addEventListener("change", () => {
+    if (els.picker.files.length) handle(async () => fromFileList(els.picker.files), "the folder");
+  });
+
+  els.pkgBtn.addEventListener("click", () => els.pkgPicker.click());
+  els.pkgPicker.addEventListener("change", () => {
+    const f = els.pkgPicker.files[0];
+    if (f) handle(() => entriesFromPkg(f), "the installer");
+  });
+})();
+</script>
+</body>
+</html>
