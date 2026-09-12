@@ -39,7 +39,7 @@ SPDX-License-Identifier = "GPL-2.0-or-later"
 
 # ===== Repository dotfiles ==================================================
 [[annotations]]
-path = ["**/.gitignore", ".gitmodules"]
+path = ["**/.gitignore", ".gitmodules", ".nojekyll"]
 precedence = "override"
 SPDX-FileCopyrightText = "(c) 2026, ThinkElastic <Think@Elastic.com>"
 SPDX-License-Identifier = "CC0-1.0"

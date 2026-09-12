@@ -61,6 +61,13 @@ on your machine.
 Open `tools/jazz-iso.html`. It is one self-contained file: no install, no
 server, and it works with the network switched off.
 
+Without cloning anything, the same page is served straight from this
+repository:
+<https://negenii.github.io/openJazz_pocket/tools/jazz-iso.html>
+
+It is the same file either way. It does its work in your browser and
+sends nothing anywhere, which you can check in the source next to it.
+
 ![The builder waiting for a folder](tools/jazz_iso1.png)
 
 Drop any of these on the page:
