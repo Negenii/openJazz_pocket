@@ -30,6 +30,13 @@ path = [
 SPDX-FileCopyrightText = "(c) 2026, ThinkElastic <Think@Elastic.com>"
 SPDX-License-Identifier = "Apache-2.0"
 
+# ===== Screenshots of this port's own tools =================================
+[[annotations]]
+path = ["tools/jazz_iso*.png"]
+precedence = "override"
+SPDX-FileCopyrightText = "(c) 2026 Evgeny Ugreninov"
+SPDX-License-Identifier = "GPL-2.0-or-later"
+
 # ===== Repository dotfiles ==================================================
 [[annotations]]
 path = ["**/.gitignore", ".gitmodules"]

@@ -32,23 +32,10 @@ fails immediately rather than producing a broken image.
 1. Unzip the release ZIP to the root of your Pocket's SD card. It adds
    `Cores/negenii.OpenJazz/`, `Assets/openjazz/` and
    `Platforms/openjazz.json`; merge with the folders already there.
-2. Build the data image from your game files, either way round:
-
-   Open `tools/jazz-iso.html` in a browser and drop the game folder on it.
-   On a Mac you can drop `Jazz Jackrabbit Collection.app`, or the `.pkg`
-   installer without installing it. The page is one self-contained file and
-   runs with no server and no internet connection.
-
-   Or from a terminal:
-   ```
-   tools/mkjazz.sh <folder-with-your-jazz-files> jazz.iso
-   ```
-
-   Both read your files locally, and the image is not something you should
-   redistribute. The GOG collection holds two games rather than one: the
-   main game and Holiday Hare 95, a standalone Christmas release. The page
-   spots both and hands you `jazz.iso` and `hh95.iso`. The script builds one
-   at a time, so point it at the `HH95` folder for the second.
+2. Turn your game files into an image, as described in
+   [Building the image](#building-the-image) below. You end up with
+   `jazz.iso`, and with `hh95.iso` too if your copy includes Holiday
+   Hare 95.
 3. Copy `jazz.iso` to `Assets/openjazz/common/` on the SD card, next to
    `openjazz.elf`. If you also have `hh95.iso`, put it in the same folder.
    The core's game list holds an entry for each: "Jazz Jackrabbit" and
@@ -62,6 +49,51 @@ image did not mount, the screen says so instead of failing silently.
 Holiday Hare 95 is a separate game, not an add-on. It reuses the world
 numbers the main game gives its own Holiday Hare episode, with different
 levels, so the two cannot live in one image. That is why each gets its own.
+
+## Building the image
+
+The Pocket loads one file per game, so the game's own files have to be
+packed into a single image first. Two tools do it, and both work entirely
+on your machine.
+
+### In a browser
+
+Open `tools/jazz-iso.html`. It is one self-contained file: no install, no
+server, and it works with the network switched off.
+
+![The builder waiting for a folder](tools/jazz_iso1.png)
+
+Drop any of these on the page:
+
+- the folder your game is installed in,
+- `Jazz Jackrabbit Collection.app`, on a Mac, the bundle itself,
+- the GOG `.pkg` installer for macOS, without installing it.
+
+The page looks through what you gave it for the folder that holds the
+game, so it does not matter how deeply it is buried. Conversion starts on
+its own; there is no button to press and nothing to choose.
+
+![Two images built, one button for each](tools/jazz_iso2.png)
+
+If your copy holds both games, you get both images in one pass, each
+under its own name. Every image is read back and checked before the
+download appears, so a half-written one is never offered.
+
+The Windows installer is the one thing the page cannot open. Run it, then
+point the page at the folder it installed.
+
+### In a terminal
+
+```
+tools/mkjazz.sh <folder-with-your-jazz-files> jazz.iso
+```
+
+It builds one image at a time, so for the second game point it at the
+`HH95` folder inside your install and name the output `hh95.iso`. It uses
+`xorriso`, `mkisofs` or `hdiutil`, whichever it finds.
+
+Whichever you use, the image is built from your own files and is not
+something you should redistribute.
 
 ## Controls
 
