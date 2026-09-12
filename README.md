@@ -40,15 +40,24 @@ fails immediately rather than producing a broken image.
    tools/mkjazz.sh <folder-with-your-jazz-files> jazz.iso
    ```
 
-   Both read your files and write a single ISO image. Nothing leaves your
-   machine, and the image is not something you should redistribute.
+   Both read your files locally, and the image is not something you should
+   redistribute. The GOG collection holds two games rather than one: the
+   main game and Holiday Hare 95, a standalone Christmas release. The page
+   spots both and hands you `jazz.iso` and `hh95.iso`. The script builds one
+   at a time, so point it at the `HH95` folder for the second.
 3. Copy `jazz.iso` to `Assets/openjazz/common/` on the SD card, next to
-   `openjazz.elf`.
+   `openjazz.elf`. If you also have `hh95.iso`, put it in the same folder.
+   The core's game list holds an entry for each: "Jazz Jackrabbit" and
+   "Holiday Hare 95", each with its own save slots.
 4. Eject the card, boot the Pocket, and launch OpenJazz from the openFPGA
    menu.
 
 Saves appear by themselves on first use. If the game data is missing or the
 image did not mount, the screen says so instead of failing silently.
+
+Holiday Hare 95 is a separate game, not an add-on. It reuses the world
+numbers the main game gives its own Holiday Hare episode, with different
+levels, so the two cannot live in one image. That is why each gets its own.
 
 ## Controls
 

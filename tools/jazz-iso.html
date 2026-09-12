@@ -145,9 +145,11 @@
     clip-path: polygon(9px 0,calc(100% - 9px) 0,calc(100% - 9px) 0,calc(100% - 9px) 1px,calc(100% - 7px) 1px,calc(100% - 7px) 2px,calc(100% - 5px) 2px,calc(100% - 5px) 3px,calc(100% - 4px) 3px,calc(100% - 4px) 4px,calc(100% - 3px) 4px,calc(100% - 3px) 5px,calc(100% - 2px) 5px,calc(100% - 2px) 6px,calc(100% - 2px) 6px,calc(100% - 2px) 7px,calc(100% - 1px) 7px,calc(100% - 1px) 8px,calc(100% - 1px) 8px,calc(100% - 1px) 9px,100% 9px,100% 10px,100% 10px,100% 11px,100% 11px,100% 12px,100% 12px,100% 13px,100% 13px,100% 14px,100% 14px,100% 15px,100% 15px,100% 16px,100% 16px,100% 17px,calc(100% - 1px) 17px,calc(100% - 1px) 18px,calc(100% - 1px) 18px,calc(100% - 1px) 19px,calc(100% - 2px) 19px,calc(100% - 2px) 20px,calc(100% - 2px) 20px,calc(100% - 2px) 21px,calc(100% - 3px) 21px,calc(100% - 3px) 22px,calc(100% - 4px) 22px,calc(100% - 4px) 23px,calc(100% - 5px) 23px,calc(100% - 5px) 24px,calc(100% - 7px) 24px,calc(100% - 7px) 25px,calc(100% - 9px) 25px,calc(100% - 9px) 26px,9px 26px,9px 25px,7px 25px,7px 24px,5px 24px,5px 23px,4px 23px,4px 22px,3px 22px,3px 21px,2px 21px,2px 20px,2px 20px,2px 19px,1px 19px,1px 18px,1px 18px,1px 17px,0 17px,0 16px,0 16px,0 15px,0 15px,0 14px,0 14px,0 13px,0 13px,0 12px,0 12px,0 11px,0 11px,0 10px,0 10px,0 9px,1px 9px,1px 8px,1px 8px,1px 7px,2px 7px,2px 6px,2px 6px,2px 5px,3px 5px,3px 4px,4px 4px,4px 3px,5px 3px,5px 2px,7px 2px,7px 1px,9px 1px,9px 0);
   }
 
-  #save {
+  #results { display: flex; flex-direction: column; gap: calc(var(--unit) * 2); }
+  #results .facts { margin-top: calc(var(--unit) * 4); }
+
+  .save {
     width: 100%;
-    margin-top: calc(var(--unit) * 4);
     height: 78px;
     padding: 0 36px;
     font-size: calc(var(--type) * 1.2);
@@ -192,8 +194,7 @@
   <section id="stage">
     <p class="status" id="status" hidden></p>
     <div class="meter" id="meter" hidden><div class="fill" id="fill"></div></div>
-    <p class="facts" id="facts" hidden></p>
-    <button type="button" id="save" hidden>Download jazz.iso</button>
+    <div id="results"></div>
   </section>
 
 </div>
@@ -203,7 +204,11 @@
   "use strict";
 
   const SECTOR = 2048;
-  const REQUIRED = ["LEVEL0.000", "MENU.000", "FONTS.000", "PANEL.000"];
+  // What makes a folder a Jazz Jackrabbit folder: the three files every
+  // release carries, plus at least one episode. Asking for LEVEL0.000 would
+  // be asking for episode one, which Holiday Hare 95 does not have at all.
+  const CORE_FILES = ["MENU.000", "FONTS.000", "PANEL.000"];
+  const LEVEL_RE = /^LEVEL0\.(\d{3})$/;
   const MIN_RUN_MS = 1000;   // the meter always takes at least this long
   const CELLS = 40;          // the meter fills in whole cells, not smoothly
 
@@ -212,8 +217,7 @@
     status: document.getElementById("status"),
     meter: document.getElementById("meter"),
     fill: document.getElementById("fill"),
-    save: document.getElementById("save"),
-    facts: document.getElementById("facts"),
+    results: document.getElementById("results"),
     pickBtn: document.getElementById("pickBtn"),
     picker: document.getElementById("picker"),
     pkgBtn: document.getElementById("pkgBtn"),
@@ -396,26 +400,40 @@
 
   /* ---------- picking the folder that holds the game ------------------- */
 
-  function chooseGameDir(entries) {
+  function findGames(entries) {
     const byDir = new Map();
     for (const e of entries) {
       if (!byDir.has(e.dir)) byDir.set(e.dir, []);
       byDir.get(e.dir).push(e);
     }
-    let best = null;
+    const found = [];
     for (const [dir, files] of byDir) {
       const upper = new Map(files.map(f => [f.name.toUpperCase(), f]));
-      const hits = REQUIRED.filter(r => upper.has(r)).length;
-      if (!hits) continue;
-      const depth = dir ? dir.split("/").length : 0;
-      const cand = { dir, files, hits, depth, upper };
-      if (!best || hits > best.hits ||
-          (hits === best.hits && depth < best.depth) ||
-          (hits === best.hits && depth === best.depth && files.length > best.files.length)) {
-        best = cand;
-      }
+      if (!CORE_FILES.every(f => upper.has(f))) continue;
+      const worlds = [...upper.keys()]
+        .map(n => LEVEL_RE.exec(n))
+        .filter(Boolean)
+        .map(m => m[1]);
+      if (!worlds.length) continue;
+      found.push({
+        dir, files, upper, worlds,
+        main: worlds.includes("000"),
+        depth: dir ? dir.split("/").length : 0,
+      });
     }
-    return best;
+    // The full game first, then whatever else came along, shallowest first.
+    found.sort((a, b) => (b.main - a.main) || (a.depth - b.depth));
+    for (const g of found) g.name = imageName(g);
+    return found;
+  }
+
+  function imageName(game) {
+    // The core mounts whatever the instance JSON points at, so the name is
+    // what tells the two entries in the Pocket's list apart.
+    if (game.main) return "jazz.iso";
+    if (game.worlds.includes("050")) return "hh95.iso";
+    const leaf = (game.dir.split("/").pop() || "game").toLowerCase().replace(/[^a-z0-9]+/g, "");
+    return (leaf || "game") + ".iso";
   }
 
   /* ---------- ISO 9660 ------------------------------------------------- */
@@ -625,7 +643,7 @@
     const check = inspectIso(out.image);
     if (!check.ok) return check.reason;
     const byName = new Map(check.files.map(f => [f.name, f.size]));
-    const missing = REQUIRED.filter(r => !byName.has(r));
+    const missing = CORE_FILES.filter(r => !byName.has(r));
     if (missing.length) return "these are missing from the image: " + missing.join(", ");
     for (const it of out.items) {
       const got = byName.get(it.iso.full);
@@ -642,10 +660,16 @@
   let busy = false;
 
   function reset() {
-    els.save.hidden = true;
-    els.facts.hidden = true;
+    els.results.textContent = "";
     els.meter.hidden = true;
     els.fill.style.width = "0%";
+  }
+
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
   }
 
   // The work can finish in a blink, which reads as "nothing happened". Let the
@@ -668,41 +692,56 @@
   }
 
   async function convert(entries, label) {
-    const pick = chooseGameDir(entries);
-    if (!pick || pick.hits < REQUIRED.length) {
+    const games = findGames(entries);
+    if (!games.length) {
       say("No Jazz Jackrabbit files in " + label + ". Looked through " +
-          entries.length + " files for " + REQUIRED.join(", ") + ".", "error");
+          entries.length + " files for " + CORE_FILES.join(", ") +
+          " next to a LEVEL0 file.", "error");
       return false;
     }
 
-    let real = 0;
+    const total = games.reduce((n, g) => n + g.files.length, 0);
+    let packed = 0, real = 0;
     els.meter.hidden = false;
-    say("Building the image from " + pick.files.length + " files...");
+    say(games.length > 1
+      ? "Building " + games.length + " images from " + total + " files..."
+      : "Building the image from " + total + " files...");
 
-    const [out] = await Promise.all([
-      buildIso(pick.files, f => { real = f; }),
-      runBar(() => real),
-    ]);
+    const build = (async () => {
+      const made = [];
+      for (const game of games) {
+        const share = game.files.length / total;
+        const done = packed;
+        const out = await buildIso(game.files, f => { real = done + f * share; });
+        packed = done + share;
+        const problem = verify(out);
+        if (problem) throw new Error(problem);
+        made.push({ game, out });
+      }
+      return made;
+    })();
 
-    const problem = verify(out);
-    if (problem) {
-      say("Something went wrong: " + problem, "error");
-      return false;
-    }
+    const [made] = await Promise.all([build, runBar(() => real)]);
 
-    say("Ready.", "done");
-    els.facts.textContent = "jazz.iso · " + bytes(out.image.length);
-    els.facts.hidden = false;
-    els.save.hidden = false;
-    els.save.onclick = () => {
-      const url = URL.createObjectURL(new Blob([out.image], { type: "application/octet-stream" }));
+    say("Done!", "done");
+    for (const { game, out } of made) offer(game.name, out.image);
+    return true;
+  }
+
+  function offer(filename, image) {
+    const line = el("p", "facts", filename + " · " + bytes(image.length));
+    const button = el("button", null, "Download " + filename);
+    button.type = "button";
+    button.className = "save";
+    button.addEventListener("click", () => {
+      const url = URL.createObjectURL(new Blob([image], { type: "application/octet-stream" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = "jazz.iso";
+      a.download = filename;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 10000);
-    };
-    return true;
+    });
+    els.results.append(line, button);
   }
 
   async function handle(job, label) {

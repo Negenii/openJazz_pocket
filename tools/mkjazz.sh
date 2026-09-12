@@ -14,9 +14,15 @@ SRC="${1:?usage: mkjazz.sh <jazz-folder> [jazz.iso]}"
 OUT="${2:-jazz.iso}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-for f in LEVEL0.000 MENU.000 FONTS.000 PANEL.000; do
-    [ -f "$SRC/$f" ] || { echo "mkjazz: $SRC does not look like a Jazz Jackrabbit folder ($f missing)" >&2; exit 1; }
+# What makes a folder a Jazz Jackrabbit folder: the three files every release
+# carries, plus at least one episode. Asking for LEVEL0.000 would be asking for
+# episode one, which Holiday Hare 95 does not have at all. Matched without
+# regard to case, since some sources unpack the names in lower case.
+have() { [ -n "$(find "$SRC" -maxdepth 1 -iname "$1" -print -quit 2>/dev/null)" ]; }
+for f in MENU.000 FONTS.000 PANEL.000; do
+    have "$f" || { echo "mkjazz: $SRC does not look like a Jazz Jackrabbit folder ($f missing)" >&2; exit 1; }
 done
+have 'LEVEL0.*' || { echo "mkjazz: no episodes in $SRC (no LEVEL0 file)" >&2; exit 1; }
 
 OUT_ABS="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
 SRC_ABS="$(cd "$SRC" && pwd)"
