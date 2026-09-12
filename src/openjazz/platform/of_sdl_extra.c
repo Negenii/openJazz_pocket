@@ -515,6 +515,18 @@ int of_sdl_SetRenderTarget(SDL_Renderer *renderer, SDL_Texture *texture) {
 	return SDL_SetRenderTarget(renderer, texture);
 }
 
+/* Paint everything outside the picture black. Index 0 is the engine's black:
+ * OpenJazz clears with it everywhere, so the bars match the scene's own edges. */
+static void of_letterbox_bars(SDL_Surface *dst, const SDL_Rect *dr) {
+	SDL_Rect bar;
+	int below = dst->h - (dr->y + dr->h);
+	int right = dst->w - (dr->x + dr->w);
+	if (dr->y > 0) { bar.x = 0; bar.y = 0; bar.w = dst->w; bar.h = dr->y; SDL_FillRect(dst, &bar, 0); }
+	if (below > 0) { bar.x = 0; bar.y = dr->y + dr->h; bar.w = dst->w; bar.h = below; SDL_FillRect(dst, &bar, 0); }
+	if (dr->x > 0) { bar.x = 0; bar.y = dr->y; bar.w = dr->x; bar.h = dr->h; SDL_FillRect(dst, &bar, 0); }
+	if (right > 0) { bar.x = dr->x + dr->w; bar.y = dr->y; bar.w = right; bar.h = dr->h; SDL_FillRect(dst, &bar, 0); }
+}
+
 int of_sdl_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture,
                       const SDL_Rect *srcrect, const SDL_Rect *dstrect) {
 	SDL_Surface *dst = SDL_GetWindowSurface(NULL);
@@ -522,7 +534,28 @@ int of_sdl_RenderCopy(SDL_Renderer *renderer, SDL_Texture *texture,
 	if (!g_render_target && dst && texture && SDL_QueryTexture(texture, &format, &access, &tw, &th) == 0) {
 		SDL_Rect sr, dr;
 		if (srcrect) sr = *srcrect; else { sr.x = 0; sr.y = 0; sr.w = tw; sr.h = th; }
-		if (dstrect) dr = *dstrect; else { dr.x = 0; dr.y = 0; dr.w = dst->w; dr.h = dst->h; }
+		if (dstrect) dr = *dstrect; else {
+			dr.x = 0; dr.y = 0; dr.w = dst->w; dr.h = dst->h;
+			/* A logical size smaller than the window means the frame should be
+			 * fitted inside it rather than stretched over it. OpenJazz sets one
+			 * for cutscenes, which are 320x200 while the screen is 320x288: SDL
+			 * would letterbox them, and the shim used to stretch them instead,
+			 * by 1.44 vertically, which duplicated rows unevenly. Fit by whole
+			 * steps so a pixel stays a pixel, and centre what comes out. */
+			int lw = 0, lh = 0;
+			SDL_RenderGetLogicalSize(renderer, &lw, &lh);
+			if (lw > 0 && lh > 0 && (lw != dst->w || lh != dst->h)) {
+				int step = dst->w / lw;
+				int steph = dst->h / lh;
+				if (steph < step) step = steph;
+				if (step < 1) step = 1;
+				dr.w = lw * step;
+				dr.h = lh * step;
+				dr.x = (dst->w - dr.w) / 2;
+				dr.y = (dst->h - dr.h) / 2;
+				of_letterbox_bars(dst, &dr);
+			}
+		}
 		if (sr.w == dr.w && sr.h == dr.h && sr.w > 0 && sr.h > 0) {
 			void *pixels = NULL; int pitch = 0;
 			if (SDL_LockTexture(texture, NULL, &pixels, &pitch) == 0 && pixels) {

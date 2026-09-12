@@ -123,6 +123,11 @@ with square pixels. The original ran at 320x200 on a 4:3 screen, so menu
 and cutscene art looks slightly flatter here. I'm just not exactly keen on
 black bars in game.
 
+Cutscenes are the exception. They are 320x200 whatever the screen is, so
+they play at that size with a band above and below rather than stretched
+to fill the height. Stretching them meant scaling 200 rows into 288, which
+duplicates one row in five and shows.
+
 ## Saves
 
 The game's own save slots work as in the original and live in the core's
