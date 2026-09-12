@@ -4,6 +4,10 @@ Jazz Jackrabbit 1 running natively on the Analogue Pocket through openfpgaOS.
 This is a port of [OpenJazz](https://github.com/AlisterT/openjazz), built
 with the [openfpgaOS SDK](https://github.com/openfpgaOS/openfpgaSDK).
 
+Two games run on it: Jazz Jackrabbit and Holiday Hare 95, the standalone
+Christmas release from 1995. Each has its own entry in the Pocket's game
+list and its own save slots.
+
 ## What you need
 
 - An Analogue Pocket on firmware 2.2 or newer, with openFPGA enabled.
